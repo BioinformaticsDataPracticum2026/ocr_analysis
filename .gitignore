@@ -23,9 +23,7 @@ build/
 dist/
 *.egg-info/
 
-data/raw/
-data/intermediate/
-data/tmp/
+/data
 
 *.bam
 *.bai
