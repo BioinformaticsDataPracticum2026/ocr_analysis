@@ -46,4 +46,4 @@ data/tmp/
 *.rds
 
 .cache/
-*_cache/
+*_cache/hal/
