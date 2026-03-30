@@ -5,7 +5,7 @@ import argparse
 import sys
 
 from utils.config import load_config
-from utils.check_dependency import check_dependencies
+from utils.check_dependencies import check_dependencies
 from scripts.halper import run_halper
 
 
