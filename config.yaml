@@ -33,4 +33,4 @@ cluster:
   ntasks: 32                # number of cores to allocate per node
   mem: 64000MB              # passed to sbatch as --mem
   allocation_id: bio230007p
-  time: "04:00:00"          # walltime limit
+  time: "72:00:00"          # walltime limit
