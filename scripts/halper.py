@@ -5,6 +5,7 @@ from typing import List
 import gzip
 import shutil
 import subprocess
+import sys
 
 
 def require_file(path: Path, label: str) -> None:
@@ -95,20 +96,78 @@ def make_summit_bed_from_narrowpeak(input_path: Path, output_path: Path, prefix:
             fout.write(f"{chrom}\t{summit}\t{summit + 1}\t{name}\n")
 
 
-def run_halper_one_direction(
+def write_sbatch_script(
+    script_path: Path,
+    log_path: Path,
+    partition: str,
+    time_limit: str,
+    hal_file: Path,
+    source_species: str,
+    target_species: str,
+    query_bed: Path,
+    summit_bed: Path,
+    mapped_bed: Path,
+    mapped_summits_bed: Path,
+    orthologfind_py: Path,
+    ortholog_bed: Path,
+    min_len: int,
+    max_len: int,
+    protect_dist: int,
+) -> None:
+    ensure_dir(script_path.parent)
+    ensure_dir(log_path.parent)
+
+    script_text = f"""#!/bin/bash
+#SBATCH -p {partition}
+#SBATCH -t {time_limit}
+#SBATCH -o {log_path}
+#SBATCH -J halper_{source_species}_to_{target_species}
+
+set -euo pipefail
+
+echo "Starting HALPER job: {source_species} -> {target_species}"
+echo "Host: $(hostname)"
+echo "Date: $(date)"
+
+halLiftover --bedType 4 "{hal_file}" "{source_species}" "{query_bed}" "{target_species}" "{mapped_bed}"
+halLiftover "{hal_file}" "{source_species}" "{summit_bed}" "{target_species}" "{mapped_summits_bed}"
+
+"{sys.executable}" "{orthologfind_py}" \\
+  -max_len "{max_len}" \\
+  -min_len "{min_len}" \\
+  -protect_dist "{protect_dist}" \\
+  -qFile "{query_bed}" \\
+  -tFile "{mapped_bed}" \\
+  -sFile "{mapped_summits_bed}" \\
+  -oFile "{ortholog_bed}" \\
+  -mult_keepone
+
+echo "Finished HALPER job: {source_species} -> {target_species}"
+echo "Date: $(date)"
+"""
+    script_path.write_text(script_text)
+    script_path.chmod(0o755)
+
+
+def submit_or_run_job(use_sbatch: bool, script_path: Path) -> None:
+    if use_sbatch:
+        run_command(["sbatch", str(script_path)])
+    else:
+        run_command(["bash", str(script_path)])
+
+
+def prepare_halper_one_direction(
     peak_file: Path,
     hal_file: Path,
     source_species: str,
     target_species: str,
     output_dir: Path,
-    orthologfind_py: Path,
-    min_len: int,
-    max_len: int,
-    protect_dist: int,
-) -> None:
+) -> dict:
     ensure_dir(output_dir)
     tmp_dir = output_dir / "tmp"
+    logs_dir = output_dir / "logs"
     ensure_dir(tmp_dir)
+    ensure_dir(logs_dir)
 
     prefix = f"{source_species}_to_{target_species}"
 
@@ -118,70 +177,51 @@ def run_halper_one_direction(
     mapped_bed = tmp_dir / f"{prefix}.mapped.bed"
     mapped_summits_bed = tmp_dir / f"{prefix}.mapped.summits.bed"
     ortholog_bed = output_dir / f"{prefix}.orthologs.bed"
+    batch_script = tmp_dir / f"{prefix}.sbatch.sh"
+    batch_log = logs_dir / f"{prefix}.log"
 
     require_file(peak_file, "Peak file")
     require_file(hal_file, "HAL file")
-    require_file(orthologfind_py, "orthologFind.py")
-    require_executable("halLiftover", "halLiftover")
 
     peak_plain_path = decompress_if_needed(peak_file, peak_plain)
-
     make_bed4_from_narrowpeak(peak_plain_path, query_bed, prefix)
     make_summit_bed_from_narrowpeak(peak_plain_path, summit_bed, prefix)
 
-    run_command([
-        "halLiftover",
-        "--bedType", "4",
-        str(hal_file),
-        source_species,
-        str(query_bed),
-        target_species,
-        str(mapped_bed),
-    ])
-
-    run_command([
-        "halLiftover",
-        str(hal_file),
-        source_species,
-        str(summit_bed),
-        target_species,
-        str(mapped_summits_bed),
-    ])
-
-    run_command([
-        "python",
-        str(orthologfind_py),
-        "-max_len", str(max_len),
-        "-min_len", str(min_len),
-        "-protect_dist", str(protect_dist),
-        "-qFile", str(query_bed),
-        "-tFile", str(mapped_bed),
-        "-sFile", str(mapped_summits_bed),
-        "-oFile", str(ortholog_bed),
-        "-mult_keepone",
-    ])
-
-    if not ortholog_bed.exists():
-        raise RuntimeError(f"HALPER finished but output file was not created: {ortholog_bed}")
+    return {
+        "query_bed": query_bed,
+        "summit_bed": summit_bed,
+        "mapped_bed": mapped_bed,
+        "mapped_summits_bed": mapped_summits_bed,
+        "ortholog_bed": ortholog_bed,
+        "batch_script": batch_script,
+        "batch_log": batch_log,
+    }
 
 
 def run_halper(config: dict) -> None:
     peak_1 = Path(config["peaks"]["species_1_peak_file"])
     peak_2 = Path(config["peaks"]["species_2_peak_file"])
     hal_file = Path(config["alignments"]["hal_file"])
+    orthologfind_py = Path(config["tools"]["orthologfind_py"])
+
+    require_file(orthologfind_py, "orthologFind.py")
+    require_executable("halLiftover", "halLiftover")
 
     species_1_name = config["comparison"]["species_1_name"]
     species_2_name = config["comparison"]["species_2_name"]
     species_1_hal = config["comparison"]["species_1_hal_name"]
     species_2_hal = config["comparison"]["species_2_hal_name"]
 
-    orthologfind_py = Path(config["tools"]["orthologfind_py"])
     output_root = Path(config["project"]["output_dir"]) / "halper"
-
     min_len = int(config["parameters"].get("min_peak_length", 50))
     max_len = int(config["parameters"].get("max_peak_length", 1000))
     protect_dist = int(config["parameters"].get("protect_dist", 5))
     bidirectional = bool(config["parameters"].get("run_bidirectional_liftover", True))
+
+    cluster = config.get("cluster", {})
+    use_sbatch = bool(cluster.get("use_sbatch", False))
+    partition = cluster.get("partition", "RM-shared")
+    time_limit = cluster.get("time", "08:00:00")
 
     print("Running HALPER...")
     print(f"  species 1 name: {species_1_name}")
@@ -193,28 +233,65 @@ def run_halper(config: dict) -> None:
     print(f"  HAL file: {hal_file}")
     print(f"  orthologFind.py: {orthologfind_py}")
     print(f"  output root: {output_root}")
+    print(f"  use sbatch: {use_sbatch}")
+    print(f"  partition: {partition}")
+    print(f"  time: {time_limit}")
 
-    run_halper_one_direction(
+    prepared_1 = prepare_halper_one_direction(
         peak_file=peak_1,
         hal_file=hal_file,
         source_species=species_1_hal,
         target_species=species_2_hal,
         output_dir=output_root / f"{species_1_name}_to_{species_2_name}",
+    )
+
+    write_sbatch_script(
+        script_path=prepared_1["batch_script"],
+        log_path=prepared_1["batch_log"],
+        partition=partition,
+        time_limit=time_limit,
+        hal_file=hal_file,
+        source_species=species_1_hal,
+        target_species=species_2_hal,
+        query_bed=prepared_1["query_bed"],
+        summit_bed=prepared_1["summit_bed"],
+        mapped_bed=prepared_1["mapped_bed"],
+        mapped_summits_bed=prepared_1["mapped_summits_bed"],
         orthologfind_py=orthologfind_py,
+        ortholog_bed=prepared_1["ortholog_bed"],
         min_len=min_len,
         max_len=max_len,
         protect_dist=protect_dist,
     )
 
+    submit_or_run_job(use_sbatch, prepared_1["batch_script"])
+
     if bidirectional:
-        run_halper_one_direction(
+        prepared_2 = prepare_halper_one_direction(
             peak_file=peak_2,
             hal_file=hal_file,
             source_species=species_2_hal,
             target_species=species_1_hal,
             output_dir=output_root / f"{species_2_name}_to_{species_1_name}",
+        )
+
+        write_sbatch_script(
+            script_path=prepared_2["batch_script"],
+            log_path=prepared_2["batch_log"],
+            partition=partition,
+            time_limit=time_limit,
+            hal_file=hal_file,
+            source_species=species_2_hal,
+            target_species=species_1_hal,
+            query_bed=prepared_2["query_bed"],
+            summit_bed=prepared_2["summit_bed"],
+            mapped_bed=prepared_2["mapped_bed"],
+            mapped_summits_bed=prepared_2["mapped_summits_bed"],
             orthologfind_py=orthologfind_py,
+            ortholog_bed=prepared_2["ortholog_bed"],
             min_len=min_len,
             max_len=max_len,
             protect_dist=protect_dist,
         )
+
+        submit_or_run_job(use_sbatch, prepared_2["batch_script"])

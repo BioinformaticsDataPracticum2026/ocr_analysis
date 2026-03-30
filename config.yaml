@@ -25,3 +25,8 @@ parameters:
   min_peak_length: 50
   max_peak_length: 1000
   protect_dist: 5
+
+cluster:
+  use_sbatch: true
+  partition: RM-shared
+  time: "08:00:00"
