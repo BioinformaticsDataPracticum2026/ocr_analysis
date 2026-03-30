@@ -28,7 +28,9 @@ parameters:
 
 cluster:
   use_sbatch: true
-  partition: RM-shared # partition requested
-  nodes: 1 # number of nodes
-  ntasks: 32 # number of cores to allocate per node
-  time: "04:00:00" # walltime limit
+  partition: RM-shared      # partition requested
+  nodes: 1                  # number of nodes
+  ntasks: 32                # number of cores to allocate per node
+  mem: 64000MB              # passed to sbatch as --mem
+  allocation_id: bio230007p
+  time: "04:00:00"          # walltime limit

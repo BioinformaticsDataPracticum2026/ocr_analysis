@@ -103,6 +103,8 @@ def write_sbatch_script(
     time_limit: str,
     nodes: int,
     ntasks: int,
+    mem: str,
+    allocation_id: str,
     hal_file: Path,
     source_species: str,
     target_species: str,
@@ -119,13 +121,25 @@ def write_sbatch_script(
     ensure_dir(script_path.parent)
     ensure_dir(log_path.parent)
 
-    script_text = f"""#!/bin/bash
-#SBATCH -p {partition}
-#SBATCH -N {nodes}
-#SBATCH --ntasks={ntasks}
-#SBATCH -t {time_limit}
-#SBATCH -o {log_path}
-#SBATCH -J halper_{source_species}_to_{target_species}
+    sbatch_lines = [
+        "#!/bin/bash",
+        f"#SBATCH -p {partition}",
+        f"#SBATCH -N {nodes}",
+        f"#SBATCH --ntasks={ntasks}",
+        f"#SBATCH -t {time_limit}",
+        f"#SBATCH -o {log_path}",
+        f"#SBATCH -J halper_{source_species}_to_{target_species}",
+    ]
+
+    if mem:
+        sbatch_lines.append(f"#SBATCH --mem={mem}")
+
+    if allocation_id:
+        sbatch_lines.append(f"#SBATCH -A {allocation_id}")
+
+    sbatch_header = "\n".join(sbatch_lines)
+
+    script_text = f"""{sbatch_header}
 
 set -euo pipefail
 
@@ -228,6 +242,8 @@ def run_halper(config: dict) -> None:
     time_limit = cluster.get("time", "08:00:00")
     nodes = int(cluster.get("nodes", 1))
     ntasks = int(cluster.get("ntasks", 1))
+    mem = cluster.get("mem")
+    allocation_id = cluster.get("allocation_id")
 
     print("Running HALPER...")
     print(f"  species 1 name: {species_1_name}")
@@ -244,6 +260,8 @@ def run_halper(config: dict) -> None:
     print(f"  time: {time_limit}")
     print(f"  nodes: {nodes}")
     print(f"  ntasks: {ntasks}")
+    print(f"  mem: {mem}")
+    print(f"  allocation_id: {allocation_id}")
 
     prepared_1 = prepare_halper_one_direction(
         peak_file=peak_1,
@@ -260,6 +278,8 @@ def run_halper(config: dict) -> None:
         time_limit=time_limit,
         nodes=nodes,
         ntasks=ntasks,
+        mem=mem,
+        allocation_id=allocation_id,
         hal_file=hal_file,
         source_species=species_1_hal,
         target_species=species_2_hal,
@@ -292,6 +312,8 @@ def run_halper(config: dict) -> None:
             time_limit=time_limit,
             nodes=nodes,
             ntasks=ntasks,
+            mem=mem,
+            allocation_id=allocation_id,
             hal_file=hal_file,
             source_species=species_2_hal,
             target_species=species_1_hal,
