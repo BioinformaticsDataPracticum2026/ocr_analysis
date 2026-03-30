@@ -1,0 +1,36 @@
+project:
+  name: human_mouse_pancreas_ocr
+  output_dir: results
+  temp_dir: tmp
+
+comparison:
+  species_1: human
+  species_2: mouse
+  organ: pancreas
+
+peaks:
+  species_1_peak_file: ./data/HumanAtac/Pancreas/peak/idr_reproducibility/idr.optimal_peak.narrowPeak.gz
+  species_2_peak_file: ./data/MouseAtac/Pancreas/peak/idr_reproducibility/idr.optimal_peak.narrowPeak.gz
+
+genome_info:
+  species_1_genome_fasta: ./data/HumanGenomeInfo/hg38.fa
+  species_2_genome_fasta: ./data/MouseGenomeInfo/mm10.fa
+
+  species_1_tss_file: ./data/HumanGenomeInfo/gencode.v27.annotation.protTranscript.geneNames_TSSWithStrand_sorted.bed
+  species_2_tss_file: ./data/MouseGenomeInfo/gencode.vM15.annotation.protTranscript.geneNames_TSSWithStrand_sorted.bed
+
+alignments:
+  hal_file: ./data/Alignments/10plusway-master.hal
+  cactus_species_list: ./data/Alignments/smallCactusSpeciesList.txt
+
+motifs:
+  motif_dir: ./data/CIS-BP_2.00
+  species_1_meme: ./data/CIS-BP_2.00/Homo_sapiens.meme
+  species_2_meme: ./data/CIS-BP_2.00/Mus_musculus.meme
+
+parameters:
+  use_idr_optimal_peaks: true
+  peak_format: narrowPeak
+  run_bidirectional_liftover: true
+  min_peak_length: 50
+  max_peak_length: 5000
