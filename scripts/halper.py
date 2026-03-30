@@ -101,6 +101,8 @@ def write_sbatch_script(
     log_path: Path,
     partition: str,
     time_limit: str,
+    nodes: int,
+    ntasks: int,
     hal_file: Path,
     source_species: str,
     target_species: str,
@@ -119,6 +121,8 @@ def write_sbatch_script(
 
     script_text = f"""#!/bin/bash
 #SBATCH -p {partition}
+#SBATCH -N {nodes}
+#SBATCH --ntasks={ntasks}
 #SBATCH -t {time_limit}
 #SBATCH -o {log_path}
 #SBATCH -J halper_{source_species}_to_{target_species}
@@ -222,6 +226,8 @@ def run_halper(config: dict) -> None:
     use_sbatch = bool(cluster.get("use_sbatch", False))
     partition = cluster.get("partition", "RM-shared")
     time_limit = cluster.get("time", "08:00:00")
+    nodes = int(cluster.get("nodes", 1))
+    ntasks = int(cluster.get("ntasks", 1))
 
     print("Running HALPER...")
     print(f"  species 1 name: {species_1_name}")
@@ -236,6 +242,8 @@ def run_halper(config: dict) -> None:
     print(f"  use sbatch: {use_sbatch}")
     print(f"  partition: {partition}")
     print(f"  time: {time_limit}")
+    print(f"  nodes: {nodes}")
+    print(f"  ntasks: {ntasks}")
 
     prepared_1 = prepare_halper_one_direction(
         peak_file=peak_1,
@@ -250,6 +258,8 @@ def run_halper(config: dict) -> None:
         log_path=prepared_1["batch_log"],
         partition=partition,
         time_limit=time_limit,
+        nodes=nodes,
+        ntasks=ntasks,
         hal_file=hal_file,
         source_species=species_1_hal,
         target_species=species_2_hal,
@@ -280,6 +290,8 @@ def run_halper(config: dict) -> None:
             log_path=prepared_2["batch_log"],
             partition=partition,
             time_limit=time_limit,
+            nodes=nodes,
+            ntasks=ntasks,
             hal_file=hal_file,
             source_species=species_2_hal,
             target_species=species_1_hal,
