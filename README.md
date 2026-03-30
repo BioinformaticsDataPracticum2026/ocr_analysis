@@ -1,4 +1,3 @@
+# ocr_analysis
 
-# Group Members: Roy Hung, Qinglin Kong, Cindy Mai, Shreya Nandakumar
-
-# Bioinformatics Tools Used: 
+Group Members: Qinglin Kong, Cindy Mai, Roy Hung, Shreya Nandakumar
