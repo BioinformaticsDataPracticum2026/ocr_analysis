@@ -45,3 +45,6 @@ dist/
 
 .cache/
 *_cache/hal/
+
+external/
+results/
