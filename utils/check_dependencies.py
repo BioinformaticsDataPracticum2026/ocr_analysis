@@ -1,5 +1,15 @@
 from pathlib import Path
 import shutil
+import sys
+
+
+def environment_help() -> str:
+    return (
+        "You may be in a fresh cluster login session.\n"
+        "Recommended setup:\n"
+        "  module load python\n"
+        "  source .venv/bin/activate\n"
+    )
 
 
 def check_python_package(import_name: str, install_name: str = None) -> None:
@@ -9,11 +19,11 @@ def check_python_package(import_name: str, install_name: str = None) -> None:
         if install_name is None:
             install_name = import_name
         raise SystemExit(
-            f"Missing Python package: {install_name}\n"
-            f"Try:\n"
+            f"Missing Python package: {install_name}\n\n"
+            f"{environment_help()}\n"
+            f"Or install just this package:\n"
             f"  python -m pip install {install_name}"
         )
-
 
 def check_executable(executable_name: str) -> None:
     if shutil.which(executable_name) is None:
@@ -28,8 +38,8 @@ def check_file_exists(path_str: str, label: str) -> None:
         raise SystemExit(f"Missing {label}: {path}")
 
 
-def check_dependencies(config: dict) -> None:
-    # Python packages
+def check_dependencies() -> None:
+    # Python packages needed before loading config
     check_python_package("yaml", "pyyaml")
     check_python_package("numpy", "numpy")
     check_python_package("matplotlib", "matplotlib")
@@ -37,7 +47,9 @@ def check_dependencies(config: dict) -> None:
     # Executables
     check_executable("halLiftover")
 
-    # Important files
+
+def check_config_dependencies(config: dict) -> None:
+    # Important files from config
     check_file_exists(config["alignments"]["hal_file"], "HAL file")
     check_file_exists(config["tools"]["orthologfind_py"], "orthologFind.py")
     check_file_exists(config["peaks"]["species_1_peak_file"], "species 1 peak file")

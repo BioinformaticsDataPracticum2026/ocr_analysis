@@ -4,9 +4,7 @@ from pathlib import Path
 import argparse
 import sys
 
-from utils.config import load_config
 from utils.check_dependencies import check_dependencies
-from scripts.halper import run_halper
 
 
 def main() -> None:
@@ -26,8 +24,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # check Python modules + basic executables first
+    check_dependencies()
+
+    # import only after dependency check passes
+    from utils.config import load_config
+    from scripts.halper import run_halper
+    from utils.check_dependencies import check_config_dependencies
+
     config = load_config(args.config)
-    check_dependencies(config)
+
+    # now check files/paths that depend on config
+    check_config_dependencies(config)
 
     print("=" * 80)
     print("Starting pipeline")
