@@ -161,7 +161,9 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
     require_executable("bedtools", "BEDTools")
 
     results_dir = Path(config["project"]["output_dir"]) / "bedtools" / "promoter_enhancer"
+    tmp_dir = results_dir / "tmp"
     ensure_dir(results_dir)
+    ensure_dir(tmp_dir)
 
     organ = config["comparison"]["organ"]
     species_1_name = config["comparison"]["species_1_name"]
@@ -182,7 +184,7 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
     outputs: Dict[str, Path] = {}
 
     # species 1
-    s1_annotated = results_dir / f"{species_1_name}_{organ}_tss_annotated.bed"
+    s1_annotated = tmp_dir / f"{species_1_name}_{organ}_tss_annotated.bed"
     s1_promoters = results_dir / f"{species_1_name}_{organ}_promoters.bed"
     s1_enhancers = results_dir / f"{species_1_name}_{organ}_enhancers.bed"
 
@@ -199,12 +201,11 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
     outputs["species_1_tss_annotated"] = s1_annotated
     outputs["species_1_promoters"] = s1_promoters
     outputs["species_1_enhancers"] = s1_enhancers
-    print(f"Wrote: {s1_annotated}")
     print(f"Wrote: {s1_promoters}")
     print(f"Wrote: {s1_enhancers}")
 
     # species 2
-    s2_annotated = results_dir / f"{species_2_name}_{organ}_tss_annotated.bed"
+    s2_annotated = tmp_dir / f"{species_2_name}_{organ}_tss_annotated.bed"
     s2_promoters = results_dir / f"{species_2_name}_{organ}_promoters.bed"
     s2_enhancers = results_dir / f"{species_2_name}_{organ}_enhancers.bed"
 
@@ -221,7 +222,6 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
     outputs["species_2_tss_annotated"] = s2_annotated
     outputs["species_2_promoters"] = s2_promoters
     outputs["species_2_enhancers"] = s2_enhancers
-    print(f"Wrote: {s2_annotated}")
     print(f"Wrote: {s2_promoters}")
     print(f"Wrote: {s2_enhancers}")
 
