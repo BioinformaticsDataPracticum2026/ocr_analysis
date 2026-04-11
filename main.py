@@ -27,6 +27,11 @@ def main() -> None:
         action="store_true",
         help="Skip BEDTools preprocessing step",
     )
+    parser.add_argument(
+        "--skip-open-closed",
+        action="store_true",
+        help="Skip open/closed BEDTools step",
+    )   
     args = parser.parse_args()
 
     # check Python modules + basic executables first
@@ -36,6 +41,7 @@ def main() -> None:
     from utils.config import load_config
     from scripts.halper import run_halper
     from scripts.bedtools_preprocess import run_bedtools_preprocess
+    from scripts.open_closed import run_open_closed
     from utils.check_dependencies import check_config_dependencies
 
     config = load_config(args.config)
@@ -60,6 +66,12 @@ def main() -> None:
         run_bedtools_preprocess(config)
     else:
         print("\n[2/2] Skipping BEDTools preprocessing")
+
+    if not args.skip_open_closed:
+        print("\n[3/3] Running open/closed classification")
+        run_open_closed(config)
+    else:
+        print("\n[3/3] Skipping open/closed classification")
 
     print("\n" + "=" * 80)
     print("Pipeline complete")
