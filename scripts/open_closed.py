@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List
+from typing import Dict, List
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,18 +17,33 @@ The overlap is determined using BEDTools intersect:
 - mouse_to_human_halper.bed vs human_pancreas_peaks.bed
 """
 
+def require_file(path: Path, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+
+
 def require_executable(name: str, label: str) -> None:
     if shutil.which(name) is None:
         raise FileNotFoundError(f"{label} not found on PATH: {name}")
 
-def run_command(cmd: List[str]) -> None:
-    print("Running:")
-    print("  " + " ".join(str(x) for x in cmd))
-    subprocess.run(cmd, check=True)
-
 
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+
+    try:
+        with open(tmp_path, "w") as fout:
+            print("Running:")
+            print("  " + " ".join(cmd))
+            subprocess.run(cmd, stdout=fout, check=True)
+        tmp_path.replace(output_path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
 
 
 def classify_open_closed(
@@ -37,65 +52,57 @@ def classify_open_closed(
     open_output: Path,
     closed_output: Path,
 ) -> None:
-    ensure_dir(open_output.parent)
-    ensure_dir(closed_output.parent)
+    require_file(mapped_bed, "Mapped BED file")
+    require_file(target_peak_bed, "Target peak BED file")
 
-    if not mapped_bed.exists():
-        raise FileNotFoundError(f"Mapped BED file not found: {mapped_bed}")
-    if not target_peak_bed.exists():
-        raise FileNotFoundError(f"Target peak BED file not found: {target_peak_bed}")
+    # open in target species: mapped peak overlaps a real peak in target
+    run_bedtools_to_file(
+        [
+            "bedtools",
+            "intersect",
+            "-a",
+            str(mapped_bed),
+            "-b",
+            str(target_peak_bed),
+            "-u",
+        ],
+        open_output,
+    )
 
-    # Open in target species: mapped peak overlaps a real peak in target
-    with open(open_output, "w") as fout:
-        subprocess.run(
-            [
-                "bedtools",
-                "intersect",
-                "-a",
-                str(mapped_bed),
-                "-b",
-                str(target_peak_bed),
-                "-u",
-            ],
-            stdout=fout,
-            check=True,
-        )
-
-    # Closed in target species: mapped peak does not overlap any real peak in target
-    with open(closed_output, "w") as fout:
-        subprocess.run(
-            [
-                "bedtools",
-                "intersect",
-                "-a",
-                str(mapped_bed),
-                "-b",
-                str(target_peak_bed),
-                "-v",
-            ],
-            stdout=fout,
-            check=True,
-        )
+    # closed in target species: mapped peak does not overlap any real peak in target
+    run_bedtools_to_file(
+        [
+            "bedtools",
+            "intersect",
+            "-a",
+            str(mapped_bed),
+            "-b",
+            str(target_peak_bed),
+            "-v",
+        ],
+        closed_output,
+    )
 
 
-def run_open_closed(config: dict) -> dict:
+def run_open_closed(config: dict) -> Dict[str, Path]:
     require_executable("bedtools", "BEDTools")
-    
+
     results_dir = Path(config["project"]["output_dir"]) / "bedtools" / "open_closed"
     ensure_dir(results_dir)
 
+    organ = config["comparison"]["organ"]
     species_1_name = config["comparison"]["species_1_name"]
     species_2_name = config["comparison"]["species_2_name"]
 
     bedtools_dir = Path(config["project"]["output_dir"]) / "bedtools"
 
-    species_1_peak_bed = bedtools_dir / f"{species_1_name}_{config['comparison']['organ']}_peaks.bed"
-    species_2_peak_bed = bedtools_dir / f"{species_2_name}_{config['comparison']['organ']}_peaks.bed"
+    species_1_peak_bed = bedtools_dir / f"{species_1_name}_{organ}_peaks.bed"
+    species_2_peak_bed = bedtools_dir / f"{species_2_name}_{organ}_peaks.bed"
 
     species_1_to_species_2_halper_bed = bedtools_dir / f"{species_1_name}_to_{species_2_name}_halper.bed"
     species_2_to_species_1_halper_bed = bedtools_dir / f"{species_2_name}_to_{species_1_name}_halper.bed"
 
-    outputs = {}
+    outputs: Dict[str, Path] = {}
 
     # species 1 -> species 2
     if species_1_to_species_2_halper_bed.exists():
