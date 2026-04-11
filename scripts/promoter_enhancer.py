@@ -101,6 +101,19 @@ def split_by_tss_distance(
             enhancer_tmp.unlink()
 
 
+def sort_bed(input_bed: Path, output_bed: Path) -> None:
+    require_file(input_bed, "BED file to sort")
+    run_bedtools_to_file(
+        [
+            "bedtools",
+            "sort",
+            "-i",
+            str(input_bed),
+        ],
+        output_bed,
+    )
+
+
 def classify_promoter_enhancer(
     peak_bed: Path,
     tss_bed: Path,
@@ -112,14 +125,23 @@ def classify_promoter_enhancer(
     require_file(peak_bed, "Peak BED file")
     require_file(tss_bed, "TSS BED file")
 
+    sorted_peak_bed = annotated_output.parent / f"{peak_bed.stem}.sorted.bed"
+    sorted_tss_bed = annotated_output.parent / f"{tss_bed.stem}.sorted.bed"
+
+    print(f"Sorting peak BED: {peak_bed}")
+    sort_bed(peak_bed, sorted_peak_bed)
+
+    print(f"Sorting TSS BED: {tss_bed}")
+    sort_bed(tss_bed, sorted_tss_bed)
+
     run_bedtools_to_file(
         [
             "bedtools",
             "closest",
             "-a",
-            str(peak_bed),
+            str(sorted_peak_bed),
             "-b",
-            str(tss_bed),
+            str(sorted_tss_bed),
             "-d",
             "-t",
             "first",
