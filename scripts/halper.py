@@ -1,34 +1,27 @@
 #!/usr/bin/env python3
 
+from typing import Dict
 from pathlib import Path
-from typing import List
 import gzip
-import shutil
-import subprocess
 import sys
 
-
-def require_file(path: Path, label: str) -> None:
-    if not path.exists():
-        raise FileNotFoundError(f"{label} not found: {path}")
-
-
-def require_executable(name: str, label: str) -> None:
-    if shutil.which(name) is None:
-        raise FileNotFoundError(f"{label} not found on PATH: {name}")
-
-
-def run_command(cmd: List[str]) -> None:
-    print("Running:")
-    print("  " + " ".join(cmd))
-    subprocess.run(cmd, check=True)
-
-
-def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
+import utils.helpers as helpers
 
 
 def decompress_if_needed(input_path: Path, output_path: Path) -> Path:
+    """Decompress a gzipped file if needed.
+
+    If the input file does not end with ``.gz``, this function returns the
+    original input path unchanged. Otherwise, it writes the decompressed
+    contents to ``output_path`` and returns that path.
+
+    Args:
+        input_path: Input file path, possibly gzipped.
+        output_path: Output path for the decompressed file.
+
+    Returns:
+        Path to the plain-text file that should be used downstream.
+    """
     if input_path.suffix != ".gz":
         return input_path
 
@@ -40,6 +33,20 @@ def decompress_if_needed(input_path: Path, output_path: Path) -> Path:
 
 
 def make_bed4_from_narrowpeak(input_path: Path, output_path: Path, prefix: str) -> None:
+    """Convert a narrowPeak file to a BED4 file.
+
+    The output contains chromosome, start, end, and a unique peak name. If the
+    input already contains a usable name in column 4, that name is kept;
+    otherwise a name is generated from ``prefix``.
+
+    Args:
+        input_path: Path to the input narrowPeak file.
+        output_path: Path to the output BED4 file.
+        prefix: Prefix used when generating peak names.
+
+    Raises:
+        ValueError: If an input line has fewer than 3 columns.
+    """
     seen = set()
 
     with open(input_path, "r") as fin, open(output_path, "w") as fout:
@@ -68,6 +75,20 @@ def make_bed4_from_narrowpeak(input_path: Path, output_path: Path, prefix: str) 
 
 
 def make_summit_bed_from_narrowpeak(input_path: Path, output_path: Path, prefix: str) -> None:
+    """Create a 1-bp summit BED file from a narrowPeak file.
+
+    The summit position is computed as ``start + summit_offset``, where the
+    summit offset is taken from column 10 of the narrowPeak file. The output
+    contains chromosome, summit start, summit end, and a unique peak name.
+
+    Args:
+        input_path: Path to the input narrowPeak file.
+        output_path: Path to the output summit BED file.
+        prefix: Prefix used when generating peak names.
+
+    Raises:
+        ValueError: If an input line has fewer than 10 columns.
+    """
     seen = set()
 
     with open(input_path, "r") as fin, open(output_path, "w") as fout:
@@ -118,8 +139,38 @@ def write_sbatch_script(
     max_len: int,
     protect_dist: int,
 ) -> None:
-    ensure_dir(script_path.parent)
-    ensure_dir(log_path.parent)
+    """Write an sbatch script for one HALPER liftover job.
+
+    The generated script runs ``halLiftover`` on both peak intervals and summit
+    intervals, then runs ``orthologFind.py`` to post-process the mapped peaks.
+
+    Args:
+        script_path: Path where the sbatch script will be written.
+        log_path: Path for the SLURM output log.
+        partition: SLURM partition name.
+        time_limit: SLURM walltime limit.
+        nodes: Number of SLURM nodes to request.
+        ntasks: Number of SLURM tasks to request.
+        mem: Memory request string, such as ``"16G"``. If empty, no ``--mem``
+            line is added.
+        allocation_id: SLURM allocation/account ID. If empty, no ``-A`` line is
+            added.
+        hal_file: Path to the HAL alignment file.
+        source_species: Source species name used in the HAL file.
+        target_species: Target species name used in the HAL file.
+        query_bed: BED4 file of query peaks.
+        summit_bed: BED file of 1-bp query summits.
+        mapped_bed: Output path for lifted query peaks.
+        mapped_summits_bed: Output path for lifted query summits.
+        orthologfind_py: Path to the ``orthologFind.py`` script.
+        ortholog_bed: Output path for HALPER ortholog peaks.
+        min_len: Minimum allowed peak length for ortholog filtering.
+        max_len: Maximum allowed peak length for ortholog filtering.
+        protect_dist: Protection distance parameter passed to
+            ``orthologFind.py``.
+    """
+    helpers.ensure_dir(script_path.parent)
+    helpers.ensure_dir(log_path.parent)
 
     sbatch_lines = [
         "#!/bin/bash",
@@ -167,13 +218,6 @@ echo "Date: $(date)"
     script_path.chmod(0o755)
 
 
-def submit_or_run_job(use_sbatch: bool, script_path: Path) -> None:
-    if use_sbatch:
-        run_command(["sbatch", str(script_path)])
-    else:
-        run_command(["bash", str(script_path)])
-
-
 def prepare_halper_one_direction(
     peak_file: Path,
     hal_file: Path,
@@ -181,11 +225,32 @@ def prepare_halper_one_direction(
     target_species: str,
     output_dir: Path,
 ) -> dict:
-    ensure_dir(output_dir)
+    """Prepare all intermediate files for one HALPER mapping direction.
+
+    This function creates working directories, validates required inputs,
+    decompresses the peak file if needed, and generates both the BED4 peak file
+    and the summit BED file used by the HALPER workflow.
+
+    Args:
+        peak_file: Input narrowPeak file for the source species.
+        hal_file: HAL alignment file.
+        source_species: Source species name used in the HAL file.
+        target_species: Target species name used in the HAL file.
+        output_dir: Output directory for this mapping direction.
+
+    Returns:
+        Dictionary containing paths to generated intermediate files, final
+        ortholog output, batch script, and log file.
+
+    Raises:
+        FileNotFoundError: If the peak file or HAL file does not exist.
+        ValueError: If the input narrowPeak file is malformed.
+    """
+    helpers.ensure_dir(output_dir)
     tmp_dir = output_dir / "tmp"
     logs_dir = output_dir / "logs"
-    ensure_dir(tmp_dir)
-    ensure_dir(logs_dir)
+    helpers.ensure_dir(tmp_dir)
+    helpers.ensure_dir(logs_dir)
 
     prefix = f"{source_species}_to_{target_species}"
 
@@ -198,8 +263,8 @@ def prepare_halper_one_direction(
     batch_script = tmp_dir / f"{prefix}.sbatch.sh"
     batch_log = logs_dir / f"{prefix}.log"
 
-    require_file(peak_file, "Peak file")
-    require_file(hal_file, "HAL file")
+    helpers.require_file(peak_file, "Peak file")
+    helpers.require_file(hal_file, "HAL file")
 
     peak_plain_path = decompress_if_needed(peak_file, peak_plain)
     make_bed4_from_narrowpeak(peak_plain_path, query_bed, prefix)
@@ -217,13 +282,34 @@ def prepare_halper_one_direction(
 
 
 def run_halper(config: dict) -> None:
+    """Run the HALPER workflow for one or two liftover directions.
+
+    This function reads paths and parameters from the configuration, validates
+    required tools, prepares intermediate BED files, writes batch scripts, and
+    either submits or runs the jobs for forward and optional reverse liftover.
+
+    If one or more HALPER jobs are submitted or launched in this run, the
+    program exits afterward so downstream steps do not continue before HALPER
+    finishes.
+
+    Args:
+        config: Configuration dictionary containing peak files, alignment paths,
+            tool paths, comparison metadata, workflow parameters, and optional
+            cluster settings.
+
+    Raises:
+        FileNotFoundError: If a required file or executable is missing.
+        KeyError: If required configuration keys are missing.
+        ValueError: If a narrowPeak file is malformed.
+        SystemExit: If one or more HALPER jobs are submitted or launched.
+    """
     peak_1 = Path(config["peaks"]["species_1_peak_file"])
     peak_2 = Path(config["peaks"]["species_2_peak_file"])
     hal_file = Path(config["alignments"]["hal_file"])
     orthologfind_py = Path(config["tools"]["orthologfind_py"])
 
-    require_file(orthologfind_py, "orthologFind.py")
-    require_executable("halLiftover", "halLiftover")
+    helpers.require_file(orthologfind_py, "orthologFind.py")
+    helpers.require_executable("halLiftover", "halLiftover")
 
     species_1_name = config["comparison"]["species_1_name"]
     species_2_name = config["comparison"]["species_2_name"]
@@ -263,6 +349,8 @@ def run_halper(config: dict) -> None:
     print(f"  mem: {mem}")
     print(f"  allocation_id: {allocation_id}")
 
+    submitted_any_job = False
+
     prepared_1 = prepare_halper_one_direction(
         peak_file=peak_1,
         hal_file=hal_file,
@@ -271,30 +359,33 @@ def run_halper(config: dict) -> None:
         output_dir=output_root / f"{species_1_name}_to_{species_2_name}",
     )
 
-    write_sbatch_script(
-        script_path=prepared_1["batch_script"],
-        log_path=prepared_1["batch_log"],
-        partition=partition,
-        time_limit=time_limit,
-        nodes=nodes,
-        ntasks=ntasks,
-        mem=mem,
-        allocation_id=allocation_id,
-        hal_file=hal_file,
-        source_species=species_1_hal,
-        target_species=species_2_hal,
-        query_bed=prepared_1["query_bed"],
-        summit_bed=prepared_1["summit_bed"],
-        mapped_bed=prepared_1["mapped_bed"],
-        mapped_summits_bed=prepared_1["mapped_summits_bed"],
-        orthologfind_py=orthologfind_py,
-        ortholog_bed=prepared_1["ortholog_bed"],
-        min_len=min_len,
-        max_len=max_len,
-        protect_dist=protect_dist,
-    )
-
-    submit_or_run_job(use_sbatch, prepared_1["batch_script"])
+    if helpers.should_use_existing_halper_output(prepared_1["ortholog_bed"]):
+        print(f"Skipping HALPER job for {species_1_name} -> {species_2_name}")
+    else:
+        write_sbatch_script(
+            script_path=prepared_1["batch_script"],
+            log_path=prepared_1["batch_log"],
+            partition=partition,
+            time_limit=time_limit,
+            nodes=nodes,
+            ntasks=ntasks,
+            mem=mem,
+            allocation_id=allocation_id,
+            hal_file=hal_file,
+            source_species=species_1_hal,
+            target_species=species_2_hal,
+            query_bed=prepared_1["query_bed"],
+            summit_bed=prepared_1["summit_bed"],
+            mapped_bed=prepared_1["mapped_bed"],
+            mapped_summits_bed=prepared_1["mapped_summits_bed"],
+            orthologfind_py=orthologfind_py,
+            ortholog_bed=prepared_1["ortholog_bed"],
+            min_len=min_len,
+            max_len=max_len,
+            protect_dist=protect_dist,
+        )
+        helpers.submit_or_run_job(use_sbatch, prepared_1["batch_script"])
+        submitted_any_job = True
 
     if bidirectional:
         prepared_2 = prepare_halper_one_direction(
@@ -305,27 +396,37 @@ def run_halper(config: dict) -> None:
             output_dir=output_root / f"{species_2_name}_to_{species_1_name}",
         )
 
-        write_sbatch_script(
-            script_path=prepared_2["batch_script"],
-            log_path=prepared_2["batch_log"],
-            partition=partition,
-            time_limit=time_limit,
-            nodes=nodes,
-            ntasks=ntasks,
-            mem=mem,
-            allocation_id=allocation_id,
-            hal_file=hal_file,
-            source_species=species_2_hal,
-            target_species=species_1_hal,
-            query_bed=prepared_2["query_bed"],
-            summit_bed=prepared_2["summit_bed"],
-            mapped_bed=prepared_2["mapped_bed"],
-            mapped_summits_bed=prepared_2["mapped_summits_bed"],
-            orthologfind_py=orthologfind_py,
-            ortholog_bed=prepared_2["ortholog_bed"],
-            min_len=min_len,
-            max_len=max_len,
-            protect_dist=protect_dist,
+        if helpers.should_use_existing_halper_output(prepared_2["ortholog_bed"]):
+            print(f"Skipping HALPER job for {species_2_name} -> {species_1_name}")
+        else:
+            write_sbatch_script(
+                script_path=prepared_2["batch_script"],
+                log_path=prepared_2["batch_log"],
+                partition=partition,
+                time_limit=time_limit,
+                nodes=nodes,
+                ntasks=ntasks,
+                mem=mem,
+                allocation_id=allocation_id,
+                hal_file=hal_file,
+                source_species=species_2_hal,
+                target_species=species_1_hal,
+                query_bed=prepared_2["query_bed"],
+                summit_bed=prepared_2["summit_bed"],
+                mapped_bed=prepared_2["mapped_bed"],
+                mapped_summits_bed=prepared_2["mapped_summits_bed"],
+                orthologfind_py=orthologfind_py,
+                ortholog_bed=prepared_2["ortholog_bed"],
+                min_len=min_len,
+                max_len=max_len,
+                protect_dist=protect_dist,
+            )
+            helpers.submit_or_run_job(use_sbatch, prepared_2["batch_script"])
+            submitted_any_job = True
+
+    if submitted_any_job:
+        raise SystemExit(
+            "Submitted HALPER job(s). Re-run the pipeline after HALPER finishes."
         )
 
-        submit_or_run_job(use_sbatch, prepared_2["batch_script"])
+    print("HALPER outputs already exist; continuing pipeline.")

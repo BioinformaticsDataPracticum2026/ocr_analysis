@@ -2,9 +2,11 @@
 
 from typing import Dict, List
 from pathlib import Path
-import shutil
+import gzip
+import sys
 import subprocess
 
+import utils.helpers as helpers
 
 """
 Here, we classify OCRs as open or closed in the target species.
@@ -26,34 +28,6 @@ mouse_peaks_closed_in_human.bed
 - mouse peaks whose mapped ortholog does not overlap a human open chromatin peak
 """
 
-def require_file(path: Path, label: str) -> None:
-    if not path.exists():
-        raise FileNotFoundError(f"{label} not found: {path}")
-
-
-def require_executable(name: str, label: str) -> None:
-    if shutil.which(name) is None:
-        raise FileNotFoundError(f"{label} not found on PATH: {name}")
-
-
-def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
-
-    try:
-        with open(tmp_path, "w") as fout:
-            print("Running:")
-            print("  " + " ".join(cmd))
-            subprocess.run(cmd, stdout=fout, check=True)
-        tmp_path.replace(output_path)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink()
-
 
 def classify_open_closed(
     mapped_bed: Path,
@@ -61,11 +35,26 @@ def classify_open_closed(
     open_output: Path,
     closed_output: Path,
 ) -> None:
-    require_file(mapped_bed, "Mapped BED file")
-    require_file(target_peak_bed, "Target peak BED file")
+    """Classify mapped peaks as open or closed in the target species.
+
+    A mapped peak is labeled as open if it overlaps a real peak in the target
+    species, and closed if it does not overlap any target peak.
+
+    Args:
+        mapped_bed: BED file of lifted-over or mapped peaks.
+        target_peak_bed: BED file of real peaks in the target species.
+        open_output: Output BED file for mapped peaks classified as open.
+        closed_output: Output BED file for mapped peaks classified as closed.
+
+    Raises:
+        FileNotFoundError: If either input BED file does not exist.
+        subprocess.CalledProcessError: If a bedtools intersect command fails.
+    """
+    helpers.require_file(mapped_bed, "Mapped BED file")
+    helpers.require_file(target_peak_bed, "Target peak BED file")
 
     # open in target species: mapped peak overlaps a real peak in target
-    run_bedtools_to_file(
+    helpers.run_bedtools_to_file(
         [
             "bedtools",
             "intersect",
@@ -79,7 +68,7 @@ def classify_open_closed(
     )
 
     # closed in target species: mapped peak does not overlap any real peak in target
-    run_bedtools_to_file(
+    helpers.run_bedtools_to_file(
         [
             "bedtools",
             "intersect",
@@ -94,10 +83,28 @@ def classify_open_closed(
 
 
 def run_open_closed(config: dict) -> Dict[str, Path]:
-    require_executable("bedtools", "BEDTools")
+    """Run open/closed peak classification for configured species comparisons.
+
+    This function checks for required inputs, builds expected BED file paths,
+    runs open/closed classification for forward liftover, and optionally runs
+    the reverse direction if bidirectional liftover is enabled.
+
+    Args:
+        config: Pipeline configuration dictionary containing project,
+            comparison, and parameter settings.
+
+    Returns:
+        A dictionary mapping result labels to output BED file paths.
+
+    Raises:
+        FileNotFoundError: If BEDTools is not available on PATH.
+        subprocess.CalledProcessError: If a bedtools command fails.
+        KeyError: If required configuration fields are missing.
+    """
+    helpers.require_executable("bedtools", "BEDTools")
 
     results_dir = Path(config["project"]["output_dir"]) / "bedtools" / "open_closed"
-    ensure_dir(results_dir)
+    helpers.ensure_dir(results_dir)
 
     organ = config["comparison"]["organ"]
     species_1_name = config["comparison"]["species_1_name"]

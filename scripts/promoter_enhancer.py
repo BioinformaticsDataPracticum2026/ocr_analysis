@@ -2,9 +2,11 @@
 
 from typing import Dict, List
 from pathlib import Path
-import shutil
+import gzip
+import sys
 import subprocess
 
+import utils.helpers as helpers
 
 """
 Here, we classify OCRs as promoter-like or enhancer-like within each species.
@@ -22,42 +24,31 @@ By default:
 """
 
 
-def require_file(path: Path, label: str) -> None:
-    if not path.exists():
-        raise FileNotFoundError(f"{label} not found: {path}")
-
-
-def require_executable(name: str, label: str) -> None:
-    if shutil.which(name) is None:
-        raise FileNotFoundError(f"{label} not found on PATH: {name}")
-
-
-def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
-
-    try:
-        with open(tmp_path, "w") as fout:
-            print("Running:")
-            print("  " + " ".join(cmd))
-            subprocess.run(cmd, stdout=fout, check=True)
-        tmp_path.replace(output_path)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink()
-
-
 def split_by_tss_distance(
     annotated_bed: Path,
     promoter_output: Path,
     enhancer_output: Path,
     promoter_max_distance: int,
 ) -> None:
-    require_file(annotated_bed, "TSS-annotated BED file")
+    """Split a TSS-annotated BED file into promoter-like and enhancer-like peaks.
+
+    This function expects the last column of each input line to contain the
+    distance to the closest TSS. Peaks with distance less than or equal to
+    ``promoter_max_distance`` are written to the promoter output; all others
+    are written to the enhancer output.
+
+    Args:
+        annotated_bed: BED file annotated with TSS distances in the last column.
+        promoter_output: Output BED file for promoter-like peaks.
+        enhancer_output: Output BED file for enhancer-like peaks.
+        promoter_max_distance: Maximum distance from a TSS for a peak to be
+            classified as promoter-like.
+
+    Raises:
+        FileNotFoundError: If the annotated BED file does not exist.
+        ValueError: If the last column of a non-empty line is not an integer.
+    """
+    helpers.require_file(annotated_bed, "TSS-annotated BED file")
 
     promoter_output.parent.mkdir(parents=True, exist_ok=True)
     enhancer_output.parent.mkdir(parents=True, exist_ok=True)
@@ -102,8 +93,18 @@ def split_by_tss_distance(
 
 
 def sort_bed(input_bed: Path, output_bed: Path) -> None:
-    require_file(input_bed, "BED file to sort")
-    run_bedtools_to_file(
+    """Sort a BED file using BEDTools.
+
+    Args:
+        input_bed: Input BED file to sort.
+        output_bed: Output path for the sorted BED file.
+
+    Raises:
+        FileNotFoundError: If the input BED file does not exist.
+        subprocess.CalledProcessError: If the BEDTools sort command fails.
+    """
+    helpers.require_file(input_bed, "BED file to sort")
+    helpers.run_bedtools_to_file(
         [
             "bedtools",
             "sort",
@@ -122,8 +123,28 @@ def classify_promoter_enhancer(
     enhancer_output: Path,
     promoter_max_distance: int,
 ) -> None:
-    require_file(peak_bed, "Peak BED file")
-    require_file(tss_bed, "TSS BED file")
+    """Classify peaks as promoter-like or enhancer-like using closest TSS distance.
+
+    This function sorts the peak BED and TSS BED files, annotates each peak with
+    the distance to the nearest TSS using ``bedtools closest``, and then splits
+    the annotated peaks into promoter-like and enhancer-like sets.
+
+    Args:
+        peak_bed: BED file of peaks to classify.
+        tss_bed: BED file of transcription start sites.
+        annotated_output: Output path for the TSS-annotated BED file.
+        promoter_output: Output BED file for promoter-like peaks.
+        enhancer_output: Output BED file for enhancer-like peaks.
+        promoter_max_distance: Maximum distance from a TSS for a peak to be
+            classified as promoter-like.
+
+    Raises:
+        FileNotFoundError: If the peak BED or TSS BED file does not exist.
+        subprocess.CalledProcessError: If a BEDTools command fails.
+        ValueError: If the annotated output contains a malformed distance column.
+    """
+    helpers.require_file(peak_bed, "Peak BED file")
+    helpers.require_file(tss_bed, "TSS BED file")
 
     sorted_peak_bed = annotated_output.parent / f"{peak_bed.stem}.sorted.bed"
     sorted_tss_bed = annotated_output.parent / f"{tss_bed.stem}.sorted.bed"
@@ -134,7 +155,7 @@ def classify_promoter_enhancer(
     print(f"Sorting TSS BED: {tss_bed}")
     sort_bed(tss_bed, sorted_tss_bed)
 
-    run_bedtools_to_file(
+    helpers.run_bedtools_to_file(
         [
             "bedtools",
             "closest",
@@ -158,12 +179,31 @@ def classify_promoter_enhancer(
 
 
 def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
-    require_executable("bedtools", "BEDTools")
+    """Run promoter/enhancer classification for both species in the config.
+
+    This function reads peak and TSS file paths from the configuration, creates
+    output directories, runs promoter/enhancer classification for each species,
+    and returns the generated file paths.
+
+    Args:
+        config: Configuration dictionary containing project, comparison, and
+            annotation settings.
+
+    Returns:
+        Dictionary mapping output labels to generated BED file paths.
+
+    Raises:
+        FileNotFoundError: If BEDTools or required input files are missing.
+        KeyError: If required configuration keys are missing.
+        subprocess.CalledProcessError: If a BEDTools command fails.
+        ValueError: If an annotated BED file contains an invalid distance value.
+    """
+    helpers.require_executable("bedtools", "BEDTools")
 
     results_dir = Path(config["project"]["output_dir"]) / "bedtools" / "promoter_enhancer"
     tmp_dir = results_dir / "tmp"
-    ensure_dir(results_dir)
-    ensure_dir(tmp_dir)
+    helpers.ensure_dir(results_dir)
+    helpers.ensure_dir(tmp_dir)
 
     organ = config["comparison"]["organ"]
     species_1_name = config["comparison"]["species_1_name"]
