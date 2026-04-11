@@ -9,6 +9,18 @@ import subprocess
 # general helper functions
 
 
+def vprint(verbose: bool, *args, **kwargs) -> None:
+    """Print only when verbose mode is enabled.
+
+    Args:
+        verbose: Whether printing is enabled.
+        *args: Positional arguments passed to print().
+        **kwargs: Keyword arguments passed to print().
+    """
+    if verbose:
+        print(*args, **kwargs)
+
+
 def require_file(path: Path, label: str) -> None:
     """Check that a required file exists.
 
@@ -37,18 +49,19 @@ def require_executable(name: str, label: str) -> None:
         raise FileNotFoundError(f"{label} not found on PATH: {name}")
 
 
-def run_command(cmd: List[str]) -> None:
+def run_command(cmd: List[str], verbose: bool = True) -> None:
     """Run a shell command and raise an error if it fails.
 
     Args:
         cmd: Command and arguments to execute.
+        verbose: Whether to print the command before running it.
 
     Raises:
         subprocess.CalledProcessError: If the command exits with a non-zero
             status.
     """
-    print("Running:")
-    print("  " + " ".join(cmd))
+    vprint(verbose, "Running:")
+    vprint(verbose, "  " + " ".join(cmd))
     subprocess.run(cmd, check=True)
 
 
@@ -64,7 +77,10 @@ def ensure_dir(path: Path) -> None:
 # HALPER related helper functions
 
 
-def should_use_existing_halper_output(ortholog_bed: Path) -> bool:
+def should_use_existing_halper_output(
+    ortholog_bed: Path,
+    verbose: bool = True,
+) -> bool:
     """Ask whether to reuse an existing HALPER output file.
 
     If the HALPER ortholog BED file already exists, the user is prompted to
@@ -72,6 +88,7 @@ def should_use_existing_halper_output(ortholog_bed: Path) -> bool:
 
     Args:
         ortholog_bed: Path to the expected HALPER ortholog output file.
+        verbose: Whether to print informational messages after the prompt.
 
     Returns:
         True if the existing output should be reused.
@@ -88,53 +105,67 @@ def should_use_existing_halper_output(ortholog_bed: Path) -> bool:
         ).strip().lower()
 
         if response in ("", "y", "yes"):
-            print(f"Using existing HALPER output: {ortholog_bed}")
+            vprint(verbose, f"Using existing HALPER output: {ortholog_bed}")
             return True
 
         if response in ("n", "no"):
-            print(f"Will regenerate HALPER output: {ortholog_bed}")
+            vprint(verbose, f"Will regenerate HALPER output: {ortholog_bed}")
             return False
 
         print("Please enter y, yes, n, no, or press Enter for yes.")
 
 
-def submit_halper_job_or_exit(use_sbatch: bool, script_path: Path) -> None:
-    """Submit or run a HALPER job, then stop the program.
-
-    Args:
-        use_sbatch: Whether to submit through SLURM.
-        script_path: Path to the job script.
-
-    Raises:
-        SystemExit: Always raised after the job is submitted or started.
-    """
-    submit_or_run_job(use_sbatch, script_path)
-    raise SystemExit(
-        "HALPER job submitted/launched. Re-run the pipeline after HALPER finishes."
-    )
-
-
-def submit_or_run_job(use_sbatch: bool, script_path: Path) -> None:
+def submit_or_run_job(
+    use_sbatch: bool,
+    script_path: Path,
+    verbose: bool = True,
+) -> None:
     """Submit a batch script with sbatch or run it directly with bash.
 
     Args:
         use_sbatch: Whether to submit the script through SLURM.
         script_path: Path to the script to submit or run.
+        verbose: Whether to print the command before running it.
 
     Raises:
         subprocess.CalledProcessError: If the submission or execution command
             fails.
     """
     if use_sbatch:
-        run_command(["sbatch", str(script_path)])
+        run_command(["sbatch", str(script_path)], verbose=verbose)
     else:
-        run_command(["bash", str(script_path)])
+        run_command(["bash", str(script_path)], verbose=verbose)
+
+
+def submit_halper_job_or_exit(
+    use_sbatch: bool,
+    script_path: Path,
+    verbose: bool = True,
+) -> None:
+    """Submit or run a HALPER job, then stop the program.
+
+    Args:
+        use_sbatch: Whether to submit through SLURM.
+        script_path: Path to the job script.
+        verbose: Whether to print the submission command.
+
+    Raises:
+        SystemExit: Always raised after the job is submitted or started.
+    """
+    submit_or_run_job(use_sbatch, script_path, verbose=verbose)
+    raise SystemExit(
+        "HALPER job submitted/launched. Re-run the pipeline after HALPER finishes."
+    )
 
 
 # bedtools related helper functions
 
 
-def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
+def run_bedtools_to_file(
+    cmd: List[str],
+    output_path: Path,
+    verbose: bool = True,
+) -> None:
     """Run a bedtools command and write stdout to an output file safely.
 
     Output is first written to a temporary file and then moved into place only
@@ -143,6 +174,7 @@ def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
     Args:
         cmd: Command and arguments to execute.
         output_path: Destination file for command output.
+        verbose: Whether to print the command before running it.
 
     Raises:
         subprocess.CalledProcessError: If the BEDTools command fails.
@@ -152,8 +184,8 @@ def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
 
     try:
         with open(tmp_path, "w") as fout:
-            print("Running:")
-            print("  " + " ".join(cmd))
+            vprint(verbose, "Running:")
+            vprint(verbose, "  " + " ".join(cmd))
             subprocess.run(cmd, stdout=fout, check=True)
         tmp_path.replace(output_path)
     finally:

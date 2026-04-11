@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List
+from typing import Dict
 from pathlib import Path
-import gzip
-import sys
-import subprocess
 
 import utils.helpers as helpers
 
@@ -92,16 +89,16 @@ def split_by_tss_distance(
             enhancer_tmp.unlink()
 
 
-def sort_bed(input_bed: Path, output_bed: Path) -> None:
+def sort_bed(input_bed: Path, output_bed: Path, verbose: bool = True) -> None:
     """Sort a BED file using BEDTools.
 
     Args:
         input_bed: Input BED file to sort.
         output_bed: Output path for the sorted BED file.
+        verbose: Whether to print command details.
 
     Raises:
         FileNotFoundError: If the input BED file does not exist.
-        subprocess.CalledProcessError: If the BEDTools sort command fails.
     """
     helpers.require_file(input_bed, "BED file to sort")
     helpers.run_bedtools_to_file(
@@ -112,6 +109,7 @@ def sort_bed(input_bed: Path, output_bed: Path) -> None:
             str(input_bed),
         ],
         output_bed,
+        verbose=verbose,
     )
 
 
@@ -122,6 +120,7 @@ def classify_promoter_enhancer(
     promoter_output: Path,
     enhancer_output: Path,
     promoter_max_distance: int,
+    verbose: bool = True,
 ) -> None:
     """Classify peaks as promoter-like or enhancer-like using closest TSS distance.
 
@@ -137,10 +136,10 @@ def classify_promoter_enhancer(
         enhancer_output: Output BED file for enhancer-like peaks.
         promoter_max_distance: Maximum distance from a TSS for a peak to be
             classified as promoter-like.
+        verbose: Whether to print detailed progress and command information.
 
     Raises:
         FileNotFoundError: If the peak BED or TSS BED file does not exist.
-        subprocess.CalledProcessError: If a BEDTools command fails.
         ValueError: If the annotated output contains a malformed distance column.
     """
     helpers.require_file(peak_bed, "Peak BED file")
@@ -149,11 +148,11 @@ def classify_promoter_enhancer(
     sorted_peak_bed = annotated_output.parent / f"{peak_bed.stem}.sorted.bed"
     sorted_tss_bed = annotated_output.parent / f"{tss_bed.stem}.sorted.bed"
 
-    print(f"Sorting peak BED: {peak_bed}")
-    sort_bed(peak_bed, sorted_peak_bed)
+    helpers.vprint(verbose, f"Sorting peak BED: {peak_bed}")
+    sort_bed(peak_bed, sorted_peak_bed, verbose=verbose)
 
-    print(f"Sorting TSS BED: {tss_bed}")
-    sort_bed(tss_bed, sorted_tss_bed)
+    helpers.vprint(verbose, f"Sorting TSS BED: {tss_bed}")
+    sort_bed(tss_bed, sorted_tss_bed, verbose=verbose)
 
     helpers.run_bedtools_to_file(
         [
@@ -168,6 +167,7 @@ def classify_promoter_enhancer(
             "first",
         ],
         annotated_output,
+        verbose=verbose,
     )
 
     split_by_tss_distance(
@@ -195,9 +195,10 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
     Raises:
         FileNotFoundError: If BEDTools or required input files are missing.
         KeyError: If required configuration keys are missing.
-        subprocess.CalledProcessError: If a BEDTools command fails.
         ValueError: If an annotated BED file contains an invalid distance value.
     """
+    verbose = bool(config.get("project", {}).get("verbose", False))
+
     helpers.require_executable("bedtools", "BEDTools")
 
     results_dir = Path(config["project"]["output_dir"]) / "bedtools" / "promoter_enhancer"
@@ -236,6 +237,7 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
         promoter_output=s1_promoters,
         enhancer_output=s1_enhancers,
         promoter_max_distance=promoter_max_distance,
+        verbose=verbose,
     )
 
     outputs["species_1_tss_annotated"] = s1_annotated
@@ -257,6 +259,7 @@ def run_promoter_enhancer(config: dict) -> Dict[str, Path]:
         promoter_output=s2_promoters,
         enhancer_output=s2_enhancers,
         promoter_max_distance=promoter_max_distance,
+        verbose=verbose,
     )
 
     outputs["species_2_tss_annotated"] = s2_annotated

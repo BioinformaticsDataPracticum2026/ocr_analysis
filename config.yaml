@@ -2,6 +2,7 @@ project:
   name: human_mouse_pancreas_ocr
   output_dir: results
   temp_dir: tmp
+  verbose: false
 
 comparison:
   species_1_name: human

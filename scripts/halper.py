@@ -224,7 +224,7 @@ def prepare_halper_one_direction(
     source_species: str,
     target_species: str,
     output_dir: Path,
-) -> dict:
+) -> Dict[str, Path]:
     """Prepare all intermediate files for one HALPER mapping direction.
 
     This function creates working directories, validates required inputs,
@@ -303,6 +303,8 @@ def run_halper(config: dict) -> None:
         ValueError: If a narrowPeak file is malformed.
         SystemExit: If one or more HALPER jobs are submitted or launched.
     """
+    verbose = bool(config.get("project", {}).get("verbose", False))
+
     peak_1 = Path(config["peaks"]["species_1_peak_file"])
     peak_2 = Path(config["peaks"]["species_2_peak_file"])
     hal_file = Path(config["alignments"]["hal_file"])
@@ -331,23 +333,23 @@ def run_halper(config: dict) -> None:
     mem = cluster.get("mem")
     allocation_id = cluster.get("allocation_id")
 
-    print("Running HALPER...")
-    print(f"  species 1 name: {species_1_name}")
-    print(f"  species 2 name: {species_2_name}")
-    print(f"  species 1 HAL name: {species_1_hal}")
-    print(f"  species 2 HAL name: {species_2_hal}")
-    print(f"  species 1 peak file: {peak_1}")
-    print(f"  species 2 peak file: {peak_2}")
-    print(f"  HAL file: {hal_file}")
-    print(f"  orthologFind.py: {orthologfind_py}")
-    print(f"  output root: {output_root}")
-    print(f"  use sbatch: {use_sbatch}")
-    print(f"  partition: {partition}")
-    print(f"  time: {time_limit}")
-    print(f"  nodes: {nodes}")
-    print(f"  ntasks: {ntasks}")
-    print(f"  mem: {mem}")
-    print(f"  allocation_id: {allocation_id}")
+    helpers.vprint(verbose, "Running HALPER...")
+    helpers.vprint(verbose, f"  species 1 name: {species_1_name}")
+    helpers.vprint(verbose, f"  species 2 name: {species_2_name}")
+    helpers.vprint(verbose, f"  species 1 HAL name: {species_1_hal}")
+    helpers.vprint(verbose, f"  species 2 HAL name: {species_2_hal}")
+    helpers.vprint(verbose, f"  species 1 peak file: {peak_1}")
+    helpers.vprint(verbose, f"  species 2 peak file: {peak_2}")
+    helpers.vprint(verbose, f"  HAL file: {hal_file}")
+    helpers.vprint(verbose, f"  orthologFind.py: {orthologfind_py}")
+    helpers.vprint(verbose, f"  output root: {output_root}")
+    helpers.vprint(verbose, f"  use sbatch: {use_sbatch}")
+    helpers.vprint(verbose, f"  partition: {partition}")
+    helpers.vprint(verbose, f"  time: {time_limit}")
+    helpers.vprint(verbose, f"  nodes: {nodes}")
+    helpers.vprint(verbose, f"  ntasks: {ntasks}")
+    helpers.vprint(verbose, f"  mem: {mem}")
+    helpers.vprint(verbose, f"  allocation_id: {allocation_id}")
 
     submitted_any_job = False
 
@@ -359,7 +361,7 @@ def run_halper(config: dict) -> None:
         output_dir=output_root / f"{species_1_name}_to_{species_2_name}",
     )
 
-    if helpers.should_use_existing_halper_output(prepared_1["ortholog_bed"]):
+    if helpers.should_use_existing_halper_output(prepared_1["ortholog_bed"], verbose=verbose):
         print(f"Skipping HALPER job for {species_1_name} -> {species_2_name}")
     else:
         write_sbatch_script(
@@ -384,7 +386,7 @@ def run_halper(config: dict) -> None:
             max_len=max_len,
             protect_dist=protect_dist,
         )
-        helpers.submit_or_run_job(use_sbatch, prepared_1["batch_script"])
+        helpers.submit_or_run_job(use_sbatch, prepared_1["batch_script"], verbose=verbose)
         submitted_any_job = True
 
     if bidirectional:
@@ -396,7 +398,7 @@ def run_halper(config: dict) -> None:
             output_dir=output_root / f"{species_2_name}_to_{species_1_name}",
         )
 
-        if helpers.should_use_existing_halper_output(prepared_2["ortholog_bed"]):
+        if helpers.should_use_existing_halper_output(prepared_2["ortholog_bed"], verbose=verbose):
             print(f"Skipping HALPER job for {species_2_name} -> {species_1_name}")
         else:
             write_sbatch_script(
@@ -421,7 +423,7 @@ def run_halper(config: dict) -> None:
                 max_len=max_len,
                 protect_dist=protect_dist,
             )
-            helpers.submit_or_run_job(use_sbatch, prepared_2["batch_script"])
+            helpers.submit_or_run_job(use_sbatch, prepared_2["batch_script"], verbose=verbose)
             submitted_any_job = True
 
     if submitted_any_job:

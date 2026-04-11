@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List
+from typing import Dict
 from pathlib import Path
-import gzip
-import sys
-import subprocess
 
 import utils.helpers as helpers
 
 """
 Here, we classify OCRs as open or closed in the target species.
-The idea is: 
+The idea is:
 - if a HALPER-mapped peak overlaps a real peak in the target species, it is "open".
-- If it does not overlap any real peak in the target species, it is "closed".
+- if it does not overlap any real peak in the target species, it is "closed".
 
 The overlap is determined using BEDTools intersect:
 - human_to_mouse_halper.bed vs mouse_pancreas_peaks.bed
@@ -34,6 +31,7 @@ def classify_open_closed(
     target_peak_bed: Path,
     open_output: Path,
     closed_output: Path,
+    verbose: bool = True,
 ) -> None:
     """Classify mapped peaks as open or closed in the target species.
 
@@ -45,15 +43,14 @@ def classify_open_closed(
         target_peak_bed: BED file of real peaks in the target species.
         open_output: Output BED file for mapped peaks classified as open.
         closed_output: Output BED file for mapped peaks classified as closed.
+        verbose: Whether to print detailed command information.
 
     Raises:
         FileNotFoundError: If either input BED file does not exist.
-        subprocess.CalledProcessError: If a bedtools intersect command fails.
     """
     helpers.require_file(mapped_bed, "Mapped BED file")
     helpers.require_file(target_peak_bed, "Target peak BED file")
 
-    # open in target species: mapped peak overlaps a real peak in target
     helpers.run_bedtools_to_file(
         [
             "bedtools",
@@ -65,9 +62,9 @@ def classify_open_closed(
             "-u",
         ],
         open_output,
+        verbose=verbose,
     )
 
-    # closed in target species: mapped peak does not overlap any real peak in target
     helpers.run_bedtools_to_file(
         [
             "bedtools",
@@ -79,6 +76,7 @@ def classify_open_closed(
             "-v",
         ],
         closed_output,
+        verbose=verbose,
     )
 
 
@@ -98,9 +96,10 @@ def run_open_closed(config: dict) -> Dict[str, Path]:
 
     Raises:
         FileNotFoundError: If BEDTools is not available on PATH.
-        subprocess.CalledProcessError: If a bedtools command fails.
         KeyError: If required configuration fields are missing.
     """
+    verbose = bool(config.get("project", {}).get("verbose", False))
+
     helpers.require_executable("bedtools", "BEDTools")
 
     results_dir = Path(config["project"]["output_dir"]) / "bedtools" / "open_closed"
@@ -115,8 +114,12 @@ def run_open_closed(config: dict) -> Dict[str, Path]:
     species_1_peak_bed = bedtools_dir / f"{species_1_name}_{organ}_peaks.bed"
     species_2_peak_bed = bedtools_dir / f"{species_2_name}_{organ}_peaks.bed"
 
-    species_1_to_species_2_halper_bed = bedtools_dir / f"{species_1_name}_to_{species_2_name}_halper.bed"
-    species_2_to_species_1_halper_bed = bedtools_dir / f"{species_2_name}_to_{species_1_name}_halper.bed"
+    species_1_to_species_2_halper_bed = Path(
+        config["halper_outputs"]["species_1_to_species_2"]
+    )
+    species_2_to_species_1_halper_bed = Path(
+        config["halper_outputs"]["species_2_to_species_1"]
+    )
 
     outputs: Dict[str, Path] = {}
 
@@ -131,6 +134,7 @@ def run_open_closed(config: dict) -> Dict[str, Path]:
             target_peak_bed=species_2_peak_bed,
             open_output=s1_open_in_s2,
             closed_output=s1_closed_in_s2,
+            verbose=verbose,
         )
 
         outputs["species_1_open_in_species_2"] = s1_open_in_s2
@@ -153,6 +157,7 @@ def run_open_closed(config: dict) -> Dict[str, Path]:
                 target_peak_bed=species_1_peak_bed,
                 open_output=s2_open_in_s1,
                 closed_output=s2_closed_in_s1,
+                verbose=verbose,
             )
 
             outputs["species_2_open_in_species_1"] = s2_open_in_s1
