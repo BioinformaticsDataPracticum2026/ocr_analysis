@@ -33,7 +33,7 @@ def require_executable(name: str, label: str) -> None:
 
 
 def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True
+    path.mkdir(parents=True, exist_ok=True)
 
 
 def run_bedtools_to_file(cmd: List[str], output_path: Path) -> None:
