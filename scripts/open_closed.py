@@ -15,6 +15,15 @@ The idea is:
 The overlap is determined using BEDTools intersect:
 - human_to_mouse_halper.bed vs mouse_pancreas_peaks.bed
 - mouse_to_human_halper.bed vs human_pancreas_peaks.bed
+
+human_peaks_open_in_mouse.bed
+- human peaks whose mapped ortholog overlaps a mouse open chromatin peak
+human_peaks_closed_in_mouse.bed
+- human peaks whose mapped ortholog does not overlap a mouse open chromatin peak
+mouse_peaks_open_in_human.bed
+- mouse peaks whose mapped ortholog overlaps a human open chromatin peak
+mouse_peaks_closed_in_human.bed
+- mouse peaks whose mapped ortholog does not overlap a human open chromatin peak
 """
 
 def require_file(path: Path, label: str) -> None:
