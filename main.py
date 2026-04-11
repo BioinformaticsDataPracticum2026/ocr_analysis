@@ -22,6 +22,11 @@ def main() -> None:
         action="store_true",
         help="Skip HALPER step",
     )
+    parser.add_argument(
+        "--skip-bedtools-preprocess",
+        action="store_true",
+        help="Skip BEDTools preprocessing step",
+    )
     args = parser.parse_args()
 
     # check Python modules + basic executables first
@@ -30,6 +35,7 @@ def main() -> None:
     # import only after dependency check passes
     from utils.config import load_config
     from scripts.halper import run_halper
+    from scripts.bedtools_preprocess import run_bedtools_preprocess
     from utils.check_dependencies import check_config_dependencies
 
     config = load_config(args.config)
@@ -44,11 +50,18 @@ def main() -> None:
     print("=" * 80)
 
     if not args.skip_halper:
+        print("\n[1/2] Running HALPER")
         run_halper(config)
     else:
-        print("Skipping HALPER")
+        print("\n[1/2] Skipping HALPER")
 
-    print("=" * 80)
+    if not args.skip_bedtools_preprocess:
+        print("\n[2/2] Running BEDTools preprocessing")
+        run_bedtools_preprocess(config)
+    else:
+        print("\n[2/2] Skipping BEDTools preprocessing")
+
+    print("\n" + "=" * 80)
     print("Pipeline complete")
 
 

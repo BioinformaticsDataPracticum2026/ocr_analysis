@@ -34,3 +34,7 @@ cluster:
   mem: 64000MB              # passed to sbatch as --mem
   allocation_id: bio230007p
   time: "72:00:00"          # walltime limit
+
+halper_outputs:
+  species_1_to_species_2: ./results/halper/human_to_mouse/Human_to_Mouse.orthologs.bed
+  species_2_to_species_1: ./results/halper/mouse_to_human/Mouse_to_Human.orthologs.bed
