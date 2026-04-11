@@ -38,3 +38,8 @@ cluster:
 halper_outputs:
   species_1_to_species_2: ./results/halper/human_to_mouse/Human_to_Mouse.orthologs.bed
   species_2_to_species_1: ./results/halper/mouse_to_human/Mouse_to_Human.orthologs.bed
+
+annotations:
+  species_1_tss_file: ./data/HumanGenomeInfo/gencode.v27.annotation.protTranscript.TSSsWithStrand_sorted.bed
+  species_2_tss_file: ./data/MouseGenomeInfo/gencode.vM15.annotation.protTranscript.geneNames_TSSWithStrand_sorted.bed
+  promoter_max_distance: 5000

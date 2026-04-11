@@ -32,6 +32,12 @@ def main() -> None:
         action="store_true",
         help="Skip open/closed BEDTools step",
     )   
+    parser.add_argument(
+        "--skip-promoter-enhancer",
+        action="store_true",
+        help="Skip promoter/enhancer BEDTools step",
+    )
+    
     args = parser.parse_args()
 
     # check Python modules + basic executables first
@@ -43,6 +49,7 @@ def main() -> None:
     from scripts.bedtools_preprocess import run_bedtools_preprocess
     from scripts.open_closed import run_open_closed
     from utils.check_dependencies import check_config_dependencies
+    from scripts.promoter_enhancer import run_promoter_enhancer
 
     config = load_config(args.config)
 
@@ -72,6 +79,12 @@ def main() -> None:
         run_open_closed(config)
     else:
         print("\n[3/3] Skipping open/closed classification")
+
+    if not args.skip_promoter_enhancer:
+        print("\n[4/4] Running promoter/enhancer classification")
+        run_promoter_enhancer(config)
+    else:
+        print("\n[4/4] Skipping promoter/enhancer classification")
 
     print("\n" + "=" * 80)
     print("Pipeline complete")
