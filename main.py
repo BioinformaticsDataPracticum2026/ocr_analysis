@@ -35,6 +35,7 @@ def main() -> None:
     from scripts.open_closed import run_open_closed
     from scripts.promoter_enhancer import run_promoter_enhancer
     from scripts.cross_species_ep import run_cross_species_ep
+    from scripts.bedtools_summary import run_bedtools_summary
 
     config = load_config(args.config)
 
@@ -48,24 +49,25 @@ def main() -> None:
     print("=" * 80)
 
     if not args.skip_halper:
-        print("\n[1/5] Running HALPER")
+        print("\n[1/6] Running HALPER")
         run_halper(config)
     else:
-        print("\n[1/5] Skipping HALPER")
+        print("\n[1/6] Skipping HALPER")
 
-    print("\n[2/5] Running BEDTools preprocessing")
+    print("\n[2/6] Running BEDTools preprocessing")
     run_bedtools_preprocess(config)
 
-    print("\n[3/5] Running open/closed classification")
+    print("\n[3/6] Running open/closed classification")
     open_closed_outputs = run_open_closed(config)
 
-    print("\n[4/5] Running promoter/enhancer classification")
+    print("\n[4/6] Running promoter/enhancer classification")
     run_promoter_enhancer(config)
 
-    print("\n[5/5] Running cross-species promoter/enhancer classification")
+    print("\n[5/6] Running cross-species promoter/enhancer classification")
     run_cross_species_ep(config, open_closed_outputs)
 
-    
+    print("\n[6/6] Writing bedtools summary")
+    run_bedtools_summary(config)
 
     print("\n" + "=" * 80)
     print("Pipeline complete")
