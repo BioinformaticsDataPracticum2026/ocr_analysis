@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-import gzip
 import shutil
 import yaml
+
+from utils.helpers import open_maybe_gzip
 
 '''
 This script cleans the files from HALPER into proper BED format.
@@ -14,11 +15,6 @@ Here's how the files are processed:
 - Mouse_to_Human.orthologs.bed from HALPER > mouse_to_human_halper.bed
 - idr.optimal_peak.narrowPeak.gz -> human/mouse_pancreas_peaks.bed
 '''
-
-def open_maybe_gzip(path: Path):
-    if path.suffix == ".gz":
-        return gzip.open(path, "rt")
-    return open(path, "r")
 
 
 def write_bed3(input_path: Path, output_path: Path) -> None:

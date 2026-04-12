@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import List
+import gzip
 import shutil
 import subprocess
 
@@ -72,6 +73,12 @@ def ensure_dir(path: Path) -> None:
         path: Directory path to create.
     """
     path.mkdir(parents=True, exist_ok=True)
+
+
+def open_maybe_gzip(path: Path):
+    if path.suffix == ".gz":
+        return gzip.open(path, "rt")
+    return open(path, "r")
 
 
 def remove_empty_tmp_dirs(results_dir: Path, verbose: bool = True) -> None:
