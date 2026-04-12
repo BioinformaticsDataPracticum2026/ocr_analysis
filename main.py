@@ -51,11 +51,11 @@ def main() -> None:
     # now check files/paths that depend on config
     check_config_dependencies(config, skip_halper=skip_halper)
 
-    print("=" * 80)
+    print("=" * 40)
     print("Starting pipeline")
     print(f"Python executable: {sys.executable}")
     print(f"Config file: {args.config}")
-    print("=" * 80)
+    print("=" * 40)
 
     if args.rgreat_only:
         print("\n[1/1] Running rGREAT only")
@@ -88,7 +88,7 @@ def main() -> None:
     print("\n[7/7] Running rGREAT")
     run_rgreat(config)
 
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 40)
     print("Pipeline complete")
 
 

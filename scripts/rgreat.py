@@ -26,7 +26,10 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
         Dictionary mapping analysis labels to their output directories.
 
     Raises:
-        FileNotFoundError: If required BED files or the R script are missing.
+        FileNotFoundError: If required directories, BED files, or the R script
+            are missing.
+        NotADirectoryError: If an expected directory path exists but is not a
+            directory.
     """
     verbose = bool(config.get("project", {}).get("verbose", False))
 
@@ -36,13 +39,39 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
     species_2_name = config["comparison"]["species_2_name"]
 
     output_dir = Path(config["project"]["output_dir"])
-    cross_ep_dir = output_dir / "bedtools" / "cross_species_ep"
+    bedtools_dir = output_dir / "bedtools"
+    cross_ep_dir = bedtools_dir / "cross_species_ep"
     rgreat_dir = output_dir / "rgreat"
-
-    helpers.ensure_dir(rgreat_dir)
 
     r_script = Path("scripts") / "rgreat_online.R"
     helpers.require_file(r_script, "rGREAT R script")
+
+    if not bedtools_dir.exists():
+        raise FileNotFoundError(
+            f"BEDTools output directory not found: {bedtools_dir}\n"
+            "Run the BEDTools steps before running rGREAT."
+        )
+    if not bedtools_dir.is_dir():
+        raise NotADirectoryError(f"BEDTools path is not a directory: {bedtools_dir}")
+
+    if not cross_ep_dir.exists():
+        raise FileNotFoundError(
+            f"Cross-species promoter/enhancer directory not found: {cross_ep_dir}\n"
+            "Run cross-species promoter/enhancer classification before rGREAT."
+        )
+    if not cross_ep_dir.is_dir():
+        raise NotADirectoryError(
+            f"Cross-species promoter/enhancer path is not a directory: {cross_ep_dir}"
+        )
+
+    bed_files = sorted(cross_ep_dir.glob("*.bed"))
+    if not bed_files:
+        raise FileNotFoundError(
+            f"No BED files found in: {cross_ep_dir}\n"
+            "Run cross-species promoter/enhancer classification before rGREAT."
+        )
+
+    helpers.ensure_dir(rgreat_dir)
 
     jobs = [
         {
@@ -67,6 +96,9 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
         },
     ]
 
+    helpers.vprint(verbose, f"BEDTools directory: {bedtools_dir}")
+    helpers.vprint(verbose, f"Cross-species EP directory: {cross_ep_dir}")
+    helpers.vprint(verbose, f"Found {len(bed_files)} BED file(s) in {cross_ep_dir}")
     helpers.vprint(verbose, f"rGREAT output directory: {rgreat_dir}")
     helpers.vprint(verbose, f"Using rGREAT script: {r_script}")
     helpers.vprint(verbose, f"Configured rGREAT jobs: {len(jobs)}")
