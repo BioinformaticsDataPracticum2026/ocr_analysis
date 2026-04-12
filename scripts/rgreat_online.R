@@ -102,6 +102,7 @@ if (nrow(bed_df) == 0) {
 # 
 # BED uses 0-based, half-open coordinates.
 # GRanges uses 1-based, closed coordinates.
+# https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
 gr <- GRanges(
   seqnames = bed_df$chr,
   ranges = IRanges(start = bed_df$start + 1, end = bed_df$end)
