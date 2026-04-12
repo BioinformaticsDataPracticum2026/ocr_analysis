@@ -74,6 +74,40 @@ def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def remove_empty_tmp_dirs(results_dir: Path, verbose: bool = True) -> None:
+    """Remove empty directories named ``tmp`` under a results directory.
+
+    Args:
+        results_dir: Top-level results directory to scan.
+        verbose: Whether to print routine progress messages.
+
+    Raises:
+        FileNotFoundError: If ``results_dir`` does not exist.
+        NotADirectoryError: If ``results_dir`` is not a directory.
+    """
+    require_file(results_dir, "Results directory")
+    if not results_dir.is_dir():
+        raise NotADirectoryError(f"Results directory is not a directory: {results_dir}")
+
+    removed_any = False
+
+    for path in sorted(results_dir.rglob("tmp"), key=lambda p: len(p.parts), reverse=True):
+        if not path.is_dir():
+            continue
+
+        try:
+            next(path.iterdir())
+        except StopIteration:
+            path.rmdir()
+            removed_any = True
+            print(f"Removed empty tmp directory: {path}")
+        else:
+            vprint(verbose, f"Keeping non-empty tmp directory: {path}")
+
+    if not removed_any:
+        vprint(verbose, f"No empty tmp directories found under: {results_dir}")
+
+
 # HALPER related helper functions
 
 
