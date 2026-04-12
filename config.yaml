@@ -43,4 +43,4 @@ halper_outputs:
 annotations:
   species_1_tss_file: ./data/HumanGenomeInfo/gencode.v27.annotation.protTranscript.TSSsWithStrand_sorted.bed
   species_2_tss_file: ./data/MouseGenomeInfo/gencode.vM15.annotation.protTranscript.geneNames_TSSWithStrand_sorted.bed
-  promoter_max_distance: 2000
+  promoter_max_distance: 1000
