@@ -119,4 +119,4 @@ QK (@umehina), CM (@cindymai-776), Roy Hung
 
 ## Special Acknowledgements
 
-Thank you Isabelle
+Thank you Isabella for pointing out how we should structure the project.

@@ -27,10 +27,15 @@ def main() -> None:
         action="store_true",
         help="Skip directly to rGREAT using existing BED outputs",
     )
+    parser.add_argument(
+        "--homer-only",
+        action="store_true",
+        help="Skip directly to HOMER using existing BED outputs",
+    )
     args = parser.parse_args()
 
-    # if running rGREAT only, HALPER is implicitly skipped.
-    skip_halper = args.skip_halper or args.rgreat_only
+    # if running rGREAT only or HOMER only, HALPER is implicitly skipped.
+    skip_halper = args.skip_halper or args.rgreat_only or args.homer_only
 
     # check Python modules + basic executables first
     check_dependencies(skip_halper=skip_halper)
@@ -44,6 +49,7 @@ def main() -> None:
     from scripts.promoter_enhancer import run_promoter_enhancer
     from scripts.cross_species_ep import run_cross_species_ep
     from scripts.bedtools_summary import run_bedtools_summary
+    from scripts.homer import run_homer
     from scripts.rgreat import run_rgreat
 
     config = load_config(args.config)
@@ -60,6 +66,13 @@ def main() -> None:
     if args.rgreat_only:
         print("\n[1/1] Running rGREAT only")
         run_rgreat(config)
+        print("\n" + "=" * 80)
+        print("Pipeline complete")
+        return
+
+    if args.homer_only:
+        print("\n[1/1] Running HOMER only")
+        run_homer(config)
         print("\n" + "=" * 80)
         print("Pipeline complete")
         return
@@ -82,8 +95,11 @@ def main() -> None:
     print("\n[5/7] Running cross-species promoter/enhancer classification")
     run_cross_species_ep(config, open_closed_outputs)
 
-    print("\n[6/7] Writing BEDTools summary")
+    print("\nWriting BEDTools summary")
     run_bedtools_summary(config)
+
+    print("\n[6/7] Running HOMER")
+    run_homer(config)
 
     print("\n[7/7] Running rGREAT")
     run_rgreat(config)
