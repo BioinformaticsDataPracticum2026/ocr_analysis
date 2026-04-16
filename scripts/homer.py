@@ -15,27 +15,29 @@ This wrapper prepares and submits one HOMER job per:
 
 Main biological questions:
 1. How many motifs occur by chance?
-   -> compare default HOMER background vs matched background BEDs
+   - compare default HOMER background vs matched background BEDs
+   - default_background vs matched_background
 
 2. Do we expect motifs to be randomly distributed in open chromatin regions?
-   -> compare full-region runs (-size given) vs centered fixed-width runs (-size 200)
-
-Expected upstream inputs:
-- results/bedtools/cross_species_ep/human_open_in_mouse_enhancers.bed
-- results/bedtools/cross_species_ep/human_open_in_mouse_promoters.bed
-- results/bedtools/cross_species_ep/mouse_open_in_human_enhancers.bed
-- results/bedtools/cross_species_ep/mouse_open_in_human_promoters.bed
-
-Matched background sets:
-- results/bedtools/promoter_enhancer/human_pancreas_enhancers.bed
-- results/bedtools/promoter_enhancer/human_pancreas_promoters.bed
-- results/bedtools/promoter_enhancer/mouse_pancreas_enhancers.bed
-- results/bedtools/promoter_enhancer/mouse_pancreas_promoters.bed
+   - compare full-region runs (-size given) vs centered fixed-width runs (-size 200)
+   - matched_background vs centered_200
 """
 
 
 def homer_results_exist(output_dir: Path) -> bool:
-    """Return True if a HOMER output directory looks complete enough to reuse."""
+    """Check whether a HOMER output directory already contains results.
+
+    This is used to decide whether a HOMER run can be skipped. The check is
+    intentionally simple and looks for the standard HOMER output subdirectories
+    created for known or de novo motif results.
+
+    Args:
+        output_dir: Path to the expected HOMER output directory.
+
+    Returns:
+        True if the directory exists and contains either ``knownResults`` or
+        ``homerResults``. False otherwise.
+    """
     if not output_dir.exists():
         return False
 
@@ -46,52 +48,90 @@ def homer_results_exist(output_dir: Path) -> bool:
 
 
 def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
-    """Build all HOMER jobs to run."""
+    """Build the list of HOMER jobs to prepare and submit.
+
+    This function defines the input BED files, matched background BED files,
+    genome FASTA files, and analysis modes for all HOMER runs. Cross-species
+    BED files are paired with the FASTA of the target-species coordinate system.
+
+    Args:
+        config: Pipeline configuration dictionary loaded from YAML.
+
+    Returns:
+        A list of dictionaries, where each dictionary describes one HOMER job.
+        Each job includes the input BED, background BED, genome FASTA, output
+        directory, script path, log path, and analysis settings.
+    """
     results_dir = Path(config["project"]["output_dir"])
 
     cross_species_dir = results_dir / "bedtools" / "cross_species_ep"
     promoter_enhancer_dir = results_dir / "bedtools" / "promoter_enhancer"
     homer_dir = results_dir / "homer"
 
+    species_1_genome_fasta = Path(config["annotations"]["species_1_genome_fasta"])
+    species_2_genome_fasta = Path(config["annotations"]["species_2_genome_fasta"])
+
     datasets = [
         {
+            # Human OCRs mapped into mouse, retained if open in mouse,
+            # then classified as enhancer-like.
+            # These BED coordinates are in mouse space, so use species_2_genome_fasta.
+            # The matched background is the broader human pancreas enhancer set.
             "label": "human_open_in_mouse_enhancers",
             "input_bed": cross_species_dir / "human_open_in_mouse_enhancers.bed",
             "background_bed": promoter_enhancer_dir / "human_pancreas_enhancers.bed",
-            "genome": "hg38",
+            "genome_fasta": species_2_genome_fasta,
         },
         {
+            # Human OCRs mapped into mouse, retained if open in mouse,
+            # then classified as promoter-like.
+            # These BED coordinates are in mouse space, so use species_2_genome_fasta.
+            # The matched background is the broader human pancreas promoter set.
             "label": "human_open_in_mouse_promoters",
             "input_bed": cross_species_dir / "human_open_in_mouse_promoters.bed",
             "background_bed": promoter_enhancer_dir / "human_pancreas_promoters.bed",
-            "genome": "hg38",
+            "genome_fasta": species_2_genome_fasta,
         },
         {
+            # Mouse OCRs mapped into human, retained if open in human,
+            # then classified as enhancer-like.
+            # These BED coordinates are in human space, so use species_1_genome_fasta.
+            # The matched background is the broader mouse pancreas enhancer set.
             "label": "mouse_open_in_human_enhancers",
             "input_bed": cross_species_dir / "mouse_open_in_human_enhancers.bed",
             "background_bed": promoter_enhancer_dir / "mouse_pancreas_enhancers.bed",
-            "genome": "mm10",
+            "genome_fasta": species_1_genome_fasta,
         },
         {
+            # Mouse OCRs mapped into human, retained if open in human,
+            # then classified as promoter-like.
+            # These BED coordinates are in human space, so use species_1_genome_fasta.
+            # The matched background is the broader mouse pancreas promoter set.
             "label": "mouse_open_in_human_promoters",
             "input_bed": cross_species_dir / "mouse_open_in_human_promoters.bed",
             "background_bed": promoter_enhancer_dir / "mouse_pancreas_promoters.bed",
-            "genome": "mm10",
+            "genome_fasta": species_1_genome_fasta,
         },
     ]
 
     analysis_modes = [
         {
+            # 1. How many motifs occur in random regions of the genome
+            #    (HOMER findMotifsGenome.pl default settings)?
             "mode": "default_background",
             "size_arg": "given",
             "use_background": False,
         },
         {
+            # 2. How many motifs occur in control sequences
+            #    (HOMER findMotifsGenome.pl -bg [background regions])?
             "mode": "matched_background",
             "size_arg": "given",
             "use_background": True,
         },
         {
+            # 3. Do motifs appear more enriched in centered fixed-width windows
+            #    than across the full OCR?
             "mode": "centered_200",
             "size_arg": "200",
             "use_background": True,
@@ -112,7 +152,7 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
                     "mode": mode["mode"],
                     "input_bed": dataset["input_bed"],
                     "background_bed": dataset["background_bed"],
-                    "genome": dataset["genome"],
+                    "genome_fasta": dataset["genome_fasta"],
                     "size_arg": mode["size_arg"],
                     "use_background": mode["use_background"],
                     "output_dir": output_dir,
@@ -134,13 +174,39 @@ def write_homer_sbatch_script(
     mem: str,
     allocation_id: str,
     input_bed: Path,
-    genome: str,
+    genome_fasta: Path,
     output_dir: Path,
     size_arg: str,
     background_bed: Optional[Path],
     job_name: str,
 ) -> None:
-    """Write an sbatch script for one HOMER job."""
+    """Write an sbatch script for a single HOMER job.
+
+    The generated script loads HOMER on the cluster, validates that
+    ``findMotifsGenome.pl`` is available, and runs motif enrichment using a BED
+    file, a genome FASTA file, and an optional matched background BED file.
+
+    Args:
+        script_path: Path where the sbatch script should be written.
+        log_path: Path to the SLURM log file for this job.
+        partition: SLURM partition name.
+        time_limit: Walltime limit for the job, formatted for sbatch.
+        nodes: Number of nodes to request.
+        ntasks: Number of CPUs/tasks to request and pass to HOMER with ``-p``.
+        mem: Memory request string for sbatch, such as ``"64000MB"``.
+        allocation_id: SLURM allocation or account ID.
+        input_bed: Input BED file for motif analysis.
+        genome_fasta: Genome FASTA file used by HOMER to extract sequences.
+        output_dir: HOMER output directory for this run.
+        size_arg: HOMER ``-size`` argument, such as ``"given"`` or ``"200"``.
+        background_bed: Optional matched background BED file. If provided, it is
+            passed to HOMER with ``-bg``.
+        job_name: Job name used in the sbatch header and log messages.
+
+    Returns:
+        None. The function writes the sbatch script to disk and makes it
+        executable.
+    """
     helpers.ensure_dir(script_path.parent)
     helpers.ensure_dir(log_path.parent)
     helpers.ensure_dir(output_dir)
@@ -165,7 +231,7 @@ def write_homer_sbatch_script(
 
     bg_arg = ""
     if background_bed is not None:
-        bg_arg = f' -bg "{background_bed}"'
+        bg_arg = f' \\\n  -bg "{background_bed}"'
 
     script_text = f"""{sbatch_header}
 
@@ -177,11 +243,25 @@ echo "Date: $(date)"
 
 module load homer
 
-findMotifsGenome.pl \\
+FIND_MOTIFS="$(which findMotifsGenome.pl)"
+if [ -z "$FIND_MOTIFS" ]; then
+    echo "ERROR: findMotifsGenome.pl not found on PATH after module load homer"
+    exit 1
+fi
+
+echo "FIND_MOTIFS: $FIND_MOTIFS"
+echo "GENOME_FASTA: {genome_fasta}"
+echo "PATH: $PATH"
+echo "ntasks: {ntasks}"
+
+which findMotifsGenome.pl
+
+"$FIND_MOTIFS" \\
   "{input_bed}" \\
-  {genome} \\
+  "{genome_fasta}" \\
   "{output_dir}" \\
-  -size {size_arg}{bg_arg}
+  -size {size_arg} \\
+  -p {ntasks}{bg_arg}
 
 echo "Finished HOMER job: {job_name}"
 echo "Date: $(date)"
@@ -192,10 +272,25 @@ echo "Date: $(date)"
 
 
 def run_homer(config: dict) -> Dict[str, Path]:
-    """Prepare and submit/run HOMER jobs.
+    """Prepare and submit or run HOMER motif enrichment jobs.
 
-    If one or more jobs are submitted/launched, this function exits so the user
-    can re-run the pipeline after the jobs finish.
+    This function validates required files and executables, builds the set of
+    HOMER jobs, writes one sbatch script per job, and either submits or runs
+    each job depending on the cluster configuration. If any job is submitted or
+    launched, the function exits so the pipeline can be rerun after HOMER
+    finishes.
+
+    Args:
+        config: Pipeline configuration dictionary loaded from YAML.
+
+    Returns:
+        A dictionary mapping each HOMER run name to its output directory.
+
+    Raises:
+        FileNotFoundError: If a required BED file, FASTA file, or executable is
+            missing.
+        SystemExit: If one or more HOMER jobs are submitted or launched in this
+            run.
     """
     verbose = bool(config.get("project", {}).get("verbose", False))
 
@@ -230,25 +325,26 @@ def run_homer(config: dict) -> Dict[str, Path]:
     for job in jobs:
         label = str(job["label"])
         mode = str(job["mode"])
-        genome = str(job["genome"])
         size_arg = str(job["size_arg"])
         use_background = bool(job["use_background"])
 
         input_bed = Path(job["input_bed"])
         background_bed = Path(job["background_bed"])
+        genome_fasta = Path(job["genome_fasta"])
         output_dir = Path(job["output_dir"])
         script_path = Path(job["script_path"])
         log_path = Path(job["log_path"])
 
         helpers.require_file(input_bed, f"{label} input BED")
         helpers.require_file(background_bed, f"{label} background BED")
+        helpers.require_file(genome_fasta, f"{label} genome FASTA")
 
         run_name = f"{label}__{mode}"
         outputs[run_name] = output_dir
 
         helpers.vprint(verbose, f"Preparing HOMER job: {run_name}")
         helpers.vprint(verbose, f"  input: {input_bed}")
-        helpers.vprint(verbose, f"  genome: {genome}")
+        helpers.vprint(verbose, f"  genome FASTA: {genome_fasta}")
         helpers.vprint(
             verbose,
             f"  background: {background_bed if use_background else 'HOMER default'}",
@@ -270,7 +366,7 @@ def run_homer(config: dict) -> Dict[str, Path]:
             mem=mem,
             allocation_id=allocation_id,
             input_bed=input_bed,
-            genome=genome,
+            genome_fasta=genome_fasta,
             output_dir=output_dir,
             size_arg=size_arg,
             background_bed=background_bed if use_background else None,
