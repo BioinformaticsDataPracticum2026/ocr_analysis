@@ -29,11 +29,11 @@ parameters:
 
 cluster:
   use_sbatch: true
+  allocation_id: bio230007p
   partition: RM-shared      # partition requested
   nodes: 1                  # number of nodes
   ntasks: 32                # number of cores to allocate per node
   mem: 64000MB              # passed to sbatch as --mem
-  allocation_id: bio230007p
   time: "72:00:00"          # walltime limit
 
 halper_outputs:
@@ -43,4 +43,6 @@ halper_outputs:
 annotations:
   species_1_tss_file: ./data/HumanGenomeInfo/gencode.v27.annotation.protTranscript.TSSsWithStrand_sorted.bed
   species_2_tss_file: ./data/MouseGenomeInfo/gencode.vM15.annotation.protTranscript.geneNames_TSSWithStrand_sorted.bed
+  species_1_genome_fasta: ./data/HumanGenomeInfo/hg38.fa
+  species_2_genome_fasta: ./data/MouseGenomeInfo/mm10.fa
   promoter_max_distance: 1000
