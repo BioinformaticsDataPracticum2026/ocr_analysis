@@ -51,22 +51,25 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
     """Build the list of HOMER jobs to prepare and submit.
 
     This function defines the input BED files, matched background BED files,
-    genome FASTA files, and analysis modes for all HOMER runs. Cross-species
-    BED files are paired with the FASTA of the target-species coordinate system.
+    genome FASTA files, preparsed output directories, and analysis modes for
+    all HOMER runs. Cross-species BED files are paired with the FASTA of the
+    target-species coordinate system.
 
     Args:
         config: Pipeline configuration dictionary loaded from YAML.
 
     Returns:
         A list of dictionaries, where each dictionary describes one HOMER job.
-        Each job includes the input BED, background BED, genome FASTA, output
-        directory, script path, log path, and analysis settings.
+        Each job includes the input BED, background BED, genome FASTA,
+        preparsed directory, output directory, script path, log path, and
+        analysis settings.
     """
     results_dir = Path(config["project"]["output_dir"])
 
     cross_species_dir = results_dir / "bedtools" / "cross_species_ep"
     promoter_enhancer_dir = results_dir / "bedtools" / "promoter_enhancer"
     homer_dir = results_dir / "homer"
+    preparsed_root = homer_dir / "preparsed"
 
     species_1_genome_fasta = Path(config["annotations"]["species_1_genome_fasta"])
     species_2_genome_fasta = Path(config["annotations"]["species_2_genome_fasta"])
@@ -153,6 +156,7 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
                     "input_bed": dataset["input_bed"],
                     "background_bed": dataset["background_bed"],
                     "genome_fasta": dataset["genome_fasta"],
+                    "preparsed_dir": preparsed_root / dataset["genome_fasta"].stem,
                     "size_arg": mode["size_arg"],
                     "use_background": mode["use_background"],
                     "output_dir": output_dir,
@@ -175,6 +179,7 @@ def write_homer_sbatch_script(
     allocation_id: str,
     input_bed: Path,
     genome_fasta: Path,
+    preparsed_dir: Path,
     output_dir: Path,
     size_arg: str,
     background_bed: Optional[Path],
@@ -184,7 +189,8 @@ def write_homer_sbatch_script(
 
     The generated script loads HOMER on the cluster, validates that
     ``findMotifsGenome.pl`` is available, and runs motif enrichment using a BED
-    file, a genome FASTA file, and an optional matched background BED file.
+    file, a genome FASTA file, a writable preparsed directory, and an optional
+    matched background BED file.
 
     Args:
         script_path: Path where the sbatch script should be written.
@@ -197,6 +203,8 @@ def write_homer_sbatch_script(
         allocation_id: SLURM allocation or account ID.
         input_bed: Input BED file for motif analysis.
         genome_fasta: Genome FASTA file used by HOMER to extract sequences.
+        preparsed_dir: Writable directory where HOMER can store preparsed genome
+            files for custom FASTA-based runs.
         output_dir: HOMER output directory for this run.
         size_arg: HOMER ``-size`` argument, such as ``"given"`` or ``"200"``.
         background_bed: Optional matched background BED file. If provided, it is
@@ -210,6 +218,7 @@ def write_homer_sbatch_script(
     helpers.ensure_dir(script_path.parent)
     helpers.ensure_dir(log_path.parent)
     helpers.ensure_dir(output_dir)
+    helpers.ensure_dir(preparsed_dir)
 
     sbatch_lines = [
         "#!/bin/bash",
@@ -251,17 +260,20 @@ fi
 
 echo "FIND_MOTIFS: $FIND_MOTIFS"
 echo "GENOME_FASTA: {genome_fasta}"
+echo "PREPARSED_DIR: {preparsed_dir}"
 echo "PATH: $PATH"
 echo "ntasks: {ntasks}"
 
 which findMotifsGenome.pl
+mkdir -p "{preparsed_dir}"
 
 "$FIND_MOTIFS" \\
   "{input_bed}" \\
   "{genome_fasta}" \\
   "{output_dir}" \\
   -size {size_arg} \\
-  -p {ntasks}{bg_arg}
+  -p {ntasks} \\
+  -preparsedDir "{preparsed_dir}"{bg_arg}
 
 echo "Finished HOMER job: {job_name}"
 echo "Date: $(date)"
@@ -331,13 +343,15 @@ def run_homer(config: dict) -> Dict[str, Path]:
         input_bed = Path(job["input_bed"])
         background_bed = Path(job["background_bed"])
         genome_fasta = Path(job["genome_fasta"])
+        preparsed_dir = Path(job["preparsed_dir"])
         output_dir = Path(job["output_dir"])
         script_path = Path(job["script_path"])
         log_path = Path(job["log_path"])
 
         helpers.require_file(input_bed, f"{label} input BED")
-        helpers.require_file(background_bed, f"{label} background BED")
         helpers.require_file(genome_fasta, f"{label} genome FASTA")
+        if use_background:
+            helpers.require_file(background_bed, f"{label} background BED")
 
         run_name = f"{label}__{mode}"
         outputs[run_name] = output_dir
@@ -345,6 +359,7 @@ def run_homer(config: dict) -> Dict[str, Path]:
         helpers.vprint(verbose, f"Preparing HOMER job: {run_name}")
         helpers.vprint(verbose, f"  input: {input_bed}")
         helpers.vprint(verbose, f"  genome FASTA: {genome_fasta}")
+        helpers.vprint(verbose, f"  preparsed dir: {preparsed_dir}")
         helpers.vprint(
             verbose,
             f"  background: {background_bed if use_background else 'HOMER default'}",
@@ -367,6 +382,7 @@ def run_homer(config: dict) -> Dict[str, Path]:
             allocation_id=allocation_id,
             input_bed=input_bed,
             genome_fasta=genome_fasta,
+            preparsed_dir=preparsed_dir,
             output_dir=output_dir,
             size_arg=size_arg,
             background_bed=background_bed if use_background else None,
