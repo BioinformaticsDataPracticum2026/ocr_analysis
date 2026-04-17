@@ -71,48 +71,44 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
     homer_dir = results_dir / "homer"
     preparsed_root = homer_dir / "preparsed"
 
+    species_1_name = config["comparison"]["species_1_name"]
+    species_2_name = config["comparison"]["species_2_name"]
+    organ = config["comparison"]["organ"]
+
     species_1_genome_fasta = Path(config["annotations"]["species_1_genome_fasta"])
     species_2_genome_fasta = Path(config["annotations"]["species_2_genome_fasta"])
 
     datasets = [
         {
-            # Human OCRs mapped into mouse, retained if open in mouse,
+            # Species 1 OCRs mapped into species 2, retained if open in species 2,
             # then classified as enhancer-like.
-            # These BED coordinates are in mouse space, so use species_2_genome_fasta.
-            # The matched background is the broader human pancreas enhancer set.
-            "label": "human_open_in_mouse_enhancers",
-            "input_bed": cross_species_dir / "human_open_in_mouse_enhancers.bed",
-            "background_bed": promoter_enhancer_dir / "human_pancreas_enhancers.bed",
+            "label": f"{species_1_name}_open_in_{species_2_name}_enhancers",
+            "input_bed": cross_species_dir / f"{species_1_name}_open_in_{species_2_name}_enhancers.bed",
+            "background_bed": promoter_enhancer_dir / f"{species_2_name}_{organ}_enhancers.bed",
             "genome_fasta": species_2_genome_fasta,
         },
         {
-            # Human OCRs mapped into mouse, retained if open in mouse,
+            # Species 1 OCRs mapped into species 2, retained if open in species 2,
             # then classified as promoter-like.
-            # These BED coordinates are in mouse space, so use species_2_genome_fasta.
-            # The matched background is the broader human pancreas promoter set.
-            "label": "human_open_in_mouse_promoters",
-            "input_bed": cross_species_dir / "human_open_in_mouse_promoters.bed",
-            "background_bed": promoter_enhancer_dir / "human_pancreas_promoters.bed",
+            "label": f"{species_1_name}_open_in_{species_2_name}_promoters",
+            "input_bed": cross_species_dir / f"{species_1_name}_open_in_{species_2_name}_promoters.bed",
+            "background_bed": promoter_enhancer_dir / f"{species_2_name}_{organ}_promoters.bed",
             "genome_fasta": species_2_genome_fasta,
         },
         {
-            # Mouse OCRs mapped into human, retained if open in human,
+            # Species 2 OCRs mapped into species 1, retained if open in species 1,
             # then classified as enhancer-like.
-            # These BED coordinates are in human space, so use species_1_genome_fasta.
-            # The matched background is the broader mouse pancreas enhancer set.
-            "label": "mouse_open_in_human_enhancers",
-            "input_bed": cross_species_dir / "mouse_open_in_human_enhancers.bed",
-            "background_bed": promoter_enhancer_dir / "mouse_pancreas_enhancers.bed",
+            "label": f"{species_2_name}_open_in_{species_1_name}_enhancers",
+            "input_bed": cross_species_dir / f"{species_2_name}_open_in_{species_1_name}_enhancers.bed",
+            "background_bed": promoter_enhancer_dir / f"{species_1_name}_{organ}_enhancers.bed",
             "genome_fasta": species_1_genome_fasta,
         },
         {
-            # Mouse OCRs mapped into human, retained if open in human,
+            # Species 2 OCRs mapped into species 1, retained if open in species 1,
             # then classified as promoter-like.
-            # These BED coordinates are in human space, so use species_1_genome_fasta.
-            # The matched background is the broader mouse pancreas promoter set.
-            "label": "mouse_open_in_human_promoters",
-            "input_bed": cross_species_dir / "mouse_open_in_human_promoters.bed",
-            "background_bed": promoter_enhancer_dir / "mouse_pancreas_promoters.bed",
+            "label": f"{species_2_name}_open_in_{species_1_name}_promoters",
+            "input_bed": cross_species_dir / f"{species_2_name}_open_in_{species_1_name}_promoters.bed",
+            "background_bed": promoter_enhancer_dir / f"{species_1_name}_{organ}_promoters.bed",
             "genome_fasta": species_1_genome_fasta,
         },
     ]
