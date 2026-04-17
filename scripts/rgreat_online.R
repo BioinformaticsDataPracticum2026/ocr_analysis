@@ -117,7 +117,22 @@ job <- submitGreatJob(
 
 # retrieve all enrichment tables returned by GREAT.
 tbls <- getEnrichmentTables(job)
+print(names(tbls))
 
+tbl <- tbls[["GO Biological Process"]]
+binom_col <- grep("binom", colnames(tbl), ignore.case = TRUE, value = TRUE)
+
+if (length(binom_col) > 0) {
+  binom_col <- binom_col[1]
+
+  # ensure column is numeric (sometimes comes as character)
+  tbl[[binom_col]] <- as.numeric(tbl[[binom_col]])
+
+  tbl_sig <- tbl[!is.na(tbl[[binom_col]]) & tbl[[binom_col]] < 0.05, ]
+} else {
+  warning("No binomial column found in rGREAT output — skipping filtering")
+  tbl_sig <- tbl
+}
 # save the GREAT job object so it can be reloaded later in R.
 saveRDS(job, file.path(output_dir, paste0(run_name, ".job.rds")))
 

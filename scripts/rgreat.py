@@ -6,13 +6,13 @@ from typing import Dict
 import utils.helpers as helpers
 
 """
-run rGREAT on the final cross-species promoter/enhancer BED files.
+run rGREAT on the final open/closed peaks BED files.
 
 expected inputs:
-- human_open_in_mouse_promoters.bed   -> genome mm10
-- human_open_in_mouse_enhancers.bed   -> genome mm10
-- mouse_open_in_human_promoters.bed   -> genome hg38
-- mouse_open_in_human_enhancers.bed   -> genome hg38
+- human_peaks_closed_in_mouse.bed   -> genome hg38
+- mouse_peaks_closed_in_mouse.bed   -> genome mm10
+- human_peaks_open_in_mouse.bed   -> shared
+- mouse_peaks_open_in_human.bed   -> shared
 """
 
 
@@ -40,7 +40,7 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
 
     output_dir = Path(config["project"]["output_dir"])
     bedtools_dir = output_dir / "bedtools"
-    cross_ep_dir = bedtools_dir / "cross_species_ep"
+    open_closed_dir = bedtools_dir / "open_closed"
     rgreat_dir = output_dir / "rgreat"
 
     r_script = Path("scripts") / "rgreat_online.R"
@@ -54,20 +54,20 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
     if not bedtools_dir.is_dir():
         raise NotADirectoryError(f"BEDTools path is not a directory: {bedtools_dir}")
 
-    if not cross_ep_dir.exists():
+    if not open_closed_dir.exists():
         raise FileNotFoundError(
-            f"Cross-species promoter/enhancer directory not found: {cross_ep_dir}\n"
+            f"Cross-species promoter/enhancer directory not found: {open_closed_dir}\n"
             "Run cross-species promoter/enhancer classification before rGREAT."
         )
-    if not cross_ep_dir.is_dir():
+    if not open_closed_dir.is_dir():
         raise NotADirectoryError(
-            f"Cross-species promoter/enhancer path is not a directory: {cross_ep_dir}"
+            f"Cross-species promoter/enhancer path is not a directory: {open_closed_dir}"
         )
 
-    bed_files = sorted(cross_ep_dir.glob("*.bed"))
+    bed_files = sorted(open_closed_dir.glob("*.bed"))
     if not bed_files:
         raise FileNotFoundError(
-            f"No BED files found in: {cross_ep_dir}\n"
+            f"No BED files found in: {open_closed_dir}\n"
             "Run cross-species promoter/enhancer classification before rGREAT."
         )
 
@@ -75,30 +75,40 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
 
     jobs = [
         {
-            "label": f"{species_1_name}_open_in_{species_2_name}_promoters",
-            "bed_file": cross_ep_dir / f"{species_1_name}_open_in_{species_2_name}_promoters.bed",
+            "label": f"{species_1_name}_peaks_open_in_{species_2_name}",
+            "bed_file": open_closed_dir / f"{species_1_name}_peaks_open_in_{species_2_name}.bed",
             "genome": "mm10",
         },
         {
-            "label": f"{species_1_name}_open_in_{species_2_name}_enhancers",
-            "bed_file": cross_ep_dir / f"{species_1_name}_open_in_{species_2_name}_enhancers.bed",
+            "label": f"{species_1_name}_peaks_closed_in_{species_2_name}",
+            "bed_file": open_closed_dir / f"{species_1_name}_peaks_closed_in_{species_2_name}.bed",
             "genome": "mm10",
         },
         {
-            "label": f"{species_2_name}_open_in_{species_1_name}_promoters",
-            "bed_file": cross_ep_dir / f"{species_2_name}_open_in_{species_1_name}_promoters.bed",
+            "label": f"{species_2_name}_peaks_open_in_{species_1_name}",
+            "bed_file": open_closed_dir / f"{species_2_name}_peaks_open_in_{species_1_name}.bed",
             "genome": "hg38",
         },
         {
-            "label": f"{species_2_name}_open_in_{species_1_name}_enhancers",
-            "bed_file": cross_ep_dir / f"{species_2_name}_open_in_{species_1_name}_enhancers.bed",
+            "label": f"{species_2_name}_peaks_closed_in_{species_1_name}",
+            "bed_file": open_closed_dir / f"{species_2_name}_peaks_closed_in_{species_1_name}.bed",
             "genome": "hg38",
+        },
+        {
+            "label": f"{species_1_name}_pancreas_peaks",
+            "bed_file": bedtools_dir / f"{species_1_name}_pancreas_peaks.bed",
+            "genome": "hg38",
+        },
+        {
+            "label": f"{species_2_name}_pancreas_peaks",
+            "bed_file": bedtools_dir / f"{species_2_name}_pancreas_peaks.bed",
+            "genome": "mm10",
         },
     ]
 
     helpers.vprint(verbose, f"BEDTools directory: {bedtools_dir}")
-    helpers.vprint(verbose, f"Cross-species EP directory: {cross_ep_dir}")
-    helpers.vprint(verbose, f"Found {len(bed_files)} BED file(s) in {cross_ep_dir}")
+    helpers.vprint(verbose, f"Open-Closed EP directory: {open_closed_dir}")
+    helpers.vprint(verbose, f"Found {len(bed_files)} BED file(s) in {open_closed_dir}")
     helpers.vprint(verbose, f"rGREAT output directory: {rgreat_dir}")
     helpers.vprint(verbose, f"Using rGREAT script: {r_script}")
     helpers.vprint(verbose, f"Configured rGREAT jobs: {len(jobs)}")
