@@ -109,7 +109,7 @@ gr <- GRanges(
 )
 
 # Submit to an online job
-# THIS IS WHORE THE MAGIC HAPPENS.
+# THIS IS WHERE THE MAGIC HAPPENS.
 job <- submitGreatJob(
   gr,
   genome = genome

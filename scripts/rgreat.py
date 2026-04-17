@@ -37,6 +37,8 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
 
     species_1_name = config["comparison"]["species_1_name"]
     species_2_name = config["comparison"]["species_2_name"]
+    species_1_genome = config["rGreat"]["species_1_genome"]
+    species_2_genome = config["rGreat"]["species_2_genome"]
 
     output_dir = Path(config["project"]["output_dir"])
     bedtools_dir = output_dir / "bedtools"
@@ -77,32 +79,32 @@ def run_rgreat(config: dict) -> Dict[str, Path]:
         {
             "label": f"{species_1_name}_peaks_open_in_{species_2_name}",
             "bed_file": open_closed_dir / f"{species_1_name}_peaks_open_in_{species_2_name}.bed",
-            "genome": "mm10",
+            "genome": f"{species_2_genome}", 
         },
         {
             "label": f"{species_1_name}_peaks_closed_in_{species_2_name}",
             "bed_file": open_closed_dir / f"{species_1_name}_peaks_closed_in_{species_2_name}.bed",
-            "genome": "mm10",
+            "genome": f"{species_2_genome}",
         },
         {
             "label": f"{species_2_name}_peaks_open_in_{species_1_name}",
             "bed_file": open_closed_dir / f"{species_2_name}_peaks_open_in_{species_1_name}.bed",
-            "genome": "hg38",
+            "genome": f"{species_1_genome}",
         },
         {
             "label": f"{species_2_name}_peaks_closed_in_{species_1_name}",
             "bed_file": open_closed_dir / f"{species_2_name}_peaks_closed_in_{species_1_name}.bed",
-            "genome": "hg38",
+            "genome": f"{species_1_genome}",
         },
         {
             "label": f"{species_1_name}_pancreas_peaks",
             "bed_file": bedtools_dir / f"{species_1_name}_pancreas_peaks.bed",
-            "genome": "hg38",
+            "genome": f"{species_1_genome}",
         },
         {
             "label": f"{species_2_name}_pancreas_peaks",
             "bed_file": bedtools_dir / f"{species_2_name}_pancreas_peaks.bed",
-            "genome": "mm10",
+            "genome": f"{species_2_genome}",
         },
     ]
 
