@@ -69,6 +69,7 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
     cross_species_dir = results_dir / "bedtools" / "cross_species_ep"
     promoter_enhancer_dir = results_dir / "bedtools" / "promoter_enhancer"
     homer_dir = results_dir / "homer"
+    bedtools_dir = results_dir / "bedtools"
     preparsed_root = homer_dir / "preparsed"
 
     species_1_name = config["comparison"]["species_1_name"]
@@ -111,7 +112,39 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
             "background_bed": promoter_enhancer_dir / f"{species_1_name}_{organ}_promoters.bed",
             "genome_fasta": species_1_genome_fasta,
         },
-    ]
+        {
+            # Species 1 OCRs mapped to full set of species 1 OCRS
+            # then classified as promoter-like.
+            "label": f"{species_1_name}_{organ}_promoters",
+            "input_bed": promoter_enhancer_dir / f"{species_1_name}_{organ}_promoters.bed",
+            "background_bed": bedtools_dir / f"{species_1_name}_{organ}_peaks.bed",
+            "genome_fasta": species_1_genome_fasta,
+        },
+        {
+            # Species 1 OCRs mapped to full set of species 1 OCRS
+            # then classified as enhancer-like.
+            "label": f"{species_1_name}_{organ}_enchancers",
+            "input_bed": promoter_enhancer_dir / f"{species_1_name}_{organ}_enhancers.bed",
+            "background_bed": bedtools_dir / f"{species_1_name}_{organ}_peaks.bed",
+            "genome_fasta": species_1_genome_fasta,
+        },
+        {
+            # Species 2 OCRs mapped to full set of species 2 OCRS
+            # then classified as promoter-like.
+            "label": f"{species_2_name}_{organ}_promoters",
+            "input_bed": promoter_enhancer_dir / f"{species_2_name}_{organ}_promoters.bed",
+            "background_bed": bedtools_dir / f"{species_2_name}_{organ}_peaks.bed",
+            "genome_fasta": species_2_genome_fasta,
+        },
+        {
+            # Species 2 OCRs mapped to full set of species 2 OCRS
+            # then classified as enhancer-like.
+            "label": f"{species_2_name}_{organ}_enchancers",
+            "input_bed": promoter_enhancer_dir / f"{species_2_name}_{organ}_enhancers.bed",
+            "background_bed": bedtools_dir / f"{species_2_name}_{organ}_peaks.bed",
+            "genome_fasta": species_2_genome_fasta,
+        },
+    ] 
 
     analysis_modes = [
         {

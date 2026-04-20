@@ -6,6 +6,11 @@ Cross-species open chromatin region (OCR) comparison pipeline for the same organ
 
 This project is being developed on Bridges-2, a Linux HPC cluster.
 
+### Clone the repository
+```bash
+git clone https://github.com/BioinformaticsDataPracticum2026/ocr_analysis.git
+```
+
 ### Recommended cluster setup
 
 If this is your first time running the pipeline, create and activate a Python virtual environment:
@@ -104,18 +109,17 @@ This project is still under active development.
 - `halLiftover/HALPER` to map mouse and human OCRs across species
 - `bedtools intersect` to classify mapped OCRs as open or closed in the target species
 - promoter/enhancer annotation of cross-species open OCRs using `bedtools closest` and target-species TSS annotations
+- `rGreat` to find the functional enrichment of associated gene (GO terms) for mapped OCR set
 
-### In Progres
-
-- `rGREAT` analysis is working, but it still needs a Python wrapper
-
-### Not Started
-
-- motif analysis with `MEME` or `HOMER2`
+### In Progress
+- motif analysis with `HOMER2`
 
 ## Contributions
 
 QK (@umehina), CM (@cindymai-776), Roy Hung
+
+## Citation 
+
 
 ## Special Acknowledgements
 
