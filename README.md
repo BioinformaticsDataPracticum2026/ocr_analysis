@@ -13,28 +13,69 @@ git clone https://github.com/BioinformaticsDataPracticum2026/ocr_analysis.git
 
 ### Recommended cluster setup
 
-If this is your first time running the pipeline, create and activate a Python virtual environment:
+If this is your first time running the pipeline, create and activate a Python virtual environment _under the project directory_:
 
 ```bash
-module load python
-module load bedtools
+module load python bedtools homer
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-If you are in a fresh login session and the virtual environment already exists, run:
+If you are in a fresh login session and the virtual environment already exists, run _under the project directory_:
 
 ```bash
-module load python
-module load bedtools
+module load python bedtools homer
 source .venv/bin/activate
 ```
 
-### External Dependencies
+### halLiftover
+
+We use `halLiftover`, which included in the HAL API. To install, follow the installation instuctions here.
+
+https://github.com/ComparativeGenomicsToolkit/hal#installation
+
+Before you click on that link, please understand that Linux clusters may already have HDF5 installed. To verify HDF5 installation, please use the following command
+
+```bash
+which h5cc
+which h5dump
+which h5ls
+```
+
+If one of those returns a path, HDF5 is likely available. If it is available, skip the section where it says `HDF5 1.10.1 with C++ API enabled`, and continue downloading and installing `sonLib`. You can skip the part where it says "optional support".
+
+After building HAL, as mentioned in the HAL installation instructions, be sure to run the following command to add HAL to your `PATH` in the current shell:
+
+```bash
+export PATH=<path to hal>/bin:${PATH}
+```
+
+This makes it possible to use HAL from the terminal right away, without logging out and logging back in.
+
+If you want this change to persist in future login sessions, add the same line to `~/.bashrc` by running:
+
+```bash
+echo 'export PATH=<path to hal>/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Test with running one of the HAL API commands, such as `halLiftover`.
+
+If you see the following `halLiftover` error, it means that HAL API has been successfully installed:
+```bash
+halLiftover
+# Too few (required positional) arguments
+# halLiftover v2.2: Map BED or PSL genome interval coordinates between two genomes.
+# USAGE:
+# halLiftover [Options] <halFile> <srcGenome> <srcBed> <tgtGenome> <tgtBed>
+.....
+```
+
+### HALPER
 
 We use the `halLiftover-postprocessing` repository for `orthologFind.py`.
 
-Clone it into `external/`:
+When you are under the project root directory, clone it into `external/`:
 
 ```bash
 mkdir -p external
@@ -58,23 +99,28 @@ Then start R:
 R
 ```
 
-Install the required packages, replacing `n` with the number returned by nproc:
+At least on Bridges-2, `R` is a pre-existing module, so you don't have to load it with `module load`. I also haven't figured out the module name for R, so thankfully it works out of the box.
+
+In the R terminal, install the required packages, replacing `n` with the number returned by `nproc`:
 
 ```R
 install.packages("BiocManager")
 BiocManager::install(c("rGREAT", "GenomicRanges", "rtracklayer"), Ncpus = n)
 ```
 
-When you are on a cluster, you may see a message saying that system library paths are not writable and asking whether you want to install packages into your home directory instead. Answer yes.
+When you are on a cluster, you may see a message saying that system library paths are not writable and asking whether you want to install packages into your home directory instead. Answer yes to those questions.
 
+Quit R terminal with:
+
+```R
+q()
+```
 
 ## Run
 
 ### Configurations
 
 Before running the pipeline, you need to edit the configuration file. Configurations are located in `config.yaml`.
-
-TODO: add how to configure `config.yaml`.
 
 ### Running the Pipeline
 
