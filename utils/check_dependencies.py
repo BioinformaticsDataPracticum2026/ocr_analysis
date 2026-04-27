@@ -13,8 +13,7 @@ def environment_help() -> str:
     return (
         "You may be in a fresh cluster login session.\n"
         "Recommended setup:\n"
-        "  module load python\n"
-        "  module load bedtools\n"
+        "  module load python bedtools homer\n"
         "  python -m venv .venv\n"
         "  source .venv/bin/activate\n"
     )

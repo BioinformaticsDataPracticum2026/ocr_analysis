@@ -123,7 +123,7 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
         {
             # Species 1 OCRs mapped to full set of species 1 OCRS
             # then classified as enhancer-like.
-            "label": f"{species_1_name}_{organ}_enchancers",
+            "label": f"{species_1_name}_{organ}_enhancers",
             "input_bed": promoter_enhancer_dir / f"{species_1_name}_{organ}_enhancers.bed",
             "background_bed": bedtools_dir / f"{species_1_name}_{organ}_peaks.bed",
             "genome_fasta": species_1_genome_fasta,
@@ -139,7 +139,7 @@ def build_homer_jobs(config: dict) -> List[Dict[str, object]]:
         {
             # Species 2 OCRs mapped to full set of species 2 OCRS
             # then classified as enhancer-like.
-            "label": f"{species_2_name}_{organ}_enchancers",
+            "label": f"{species_2_name}_{organ}_enhancers",
             "input_bed": promoter_enhancer_dir / f"{species_2_name}_{organ}_enhancers.bed",
             "background_bed": bedtools_dir / f"{species_2_name}_{organ}_peaks.bed",
             "genome_fasta": species_2_genome_fasta,

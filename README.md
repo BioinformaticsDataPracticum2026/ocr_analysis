@@ -1,6 +1,6 @@
 # ocr_analysis
 
-Cross-species open chromatin region (OCR) comparison pipeline for the same organ across different organisms.
+Open chromatin region (OCR) comparison pipeline for the same organ across different organisms.
 
 ## Prerequisites
 
@@ -118,19 +118,65 @@ q()
 
 ## Run
 
+### Directory Structure
+
+```
+.
+├── config.yaml
+├── data -> /path/to/data
+├── external
+│   └── halLiftover-postprocessing
+├── main.py
+├── README.md
+├── results
+│   ├── bedtools
+│   ├── halper
+│   ├── rgreat
+│   └── homer
+├── scripts
+│   ├── bedtools_preprocess.py
+│   ├── bedtools_summary.py
+│   ├── cross_species_ep.py
+│   ├── halper.py
+│   ├── homer.py
+│   ├── open_closed.py
+│   ├── promoter_enhancer.py
+│   ├── __pycache__
+│   ├── rgreat_online.R
+│   └── rgreat.py
+└── utils
+    ├── check_dependencies.py
+    ├── config.py
+    ├── helpers.py
+    └── __pycache__
+```
+
+- `config.yaml` the configuration file for the pipeline. The file contains info on how you would edit it.
+- `external` contains external tools for this pipeline.
+- `data` is a symlink to the actual location of the data. It is not neccessary to use symlinks, but we found it easier to be able to browse the raw data in VS Code while we were designing and implementing the pipeline.
+- `main.py` is the entry point of the pipeline.
+- `results` is the folder where all results are stored.
+- `scripts` and `utils` contains source code to various parts of the pipeline.
+
+**NOTE:** To set up symlinks to the data folder, you may run the following:
+
+```bash
+ln -s /path/to/data/source/ data
+```
+
 ### Configurations
 
-Before running the pipeline, you need to edit the configuration file. Configurations are located in `config.yaml`.
+Before running the pipeline, you need to edit the configuration file. Configurations and instructions on how to edit these configuration are located in `config.yaml`.
 
 ### Running the Pipeline
 
-Running the pipeline is a simple one-liner, provided that your configurations are correct.
-
-Because the first step (`halLiftover` / `HALPER`) can take a long time, the pipeline submits this task to the cluster queue. At the moment, this workflow is intended for SLURM-based clusters that support commands such as `squeue` and `scancel`.
+Running the pipeline is a simple one-liner, provided that your configurations are correct. Run the following:
 
 ```bash
 python main.py
 ```
+
+Because the first step (`halLiftover` / `HALPER`) can take a long time, the pipeline submits this task to the cluster queue. At the moment, this workflow is intended for SLURM-based clusters that support commands such as `squeue` and `scancel`. `halLiftover` may take up to 24 hrs to run. Please refrain from running the pipeline again while you wait.
 
 If you want to skip the first step and continue the pipeline using existing HALPER output, run:
 
@@ -140,32 +186,32 @@ python main.py --skip-halper
 
 Even if you do not specify `--skip-halper`, the program can detect existing HALPER output and ask whether you want to reuse or overwrite those files.
 
+You can also run rGREAT or Homer only by using the `--rgreat-only` or `--homer-only` flags.
+
+```bash
+python main.py --rgreat-only
+python main.py --homer-only
+```
+
+### Managing Jobs Submitted to the Cluster
+
 If you need to check whether the job has been succesfully submitted, you can do so by using:
 
 ```bash
 squeue -u $USER
 ```
 
-## Current focus
+If you need to cancel all jobs, you can do so with:
 
-This project is still under active development.
+```bash
+scancel -u $USER
+```
 
-### Implemented
-
-- `halLiftover/HALPER` to map mouse and human OCRs across species
-- `bedtools intersect` to classify mapped OCRs as open or closed in the target species
-- promoter/enhancer annotation of cross-species open OCRs using `bedtools closest` and target-species TSS annotations
-- `rGreat` to find the functional enrichment of associated gene (GO terms) for mapped OCR set
-
-### In Progress
-- motif analysis with `HOMER2`
+Please refer to the [SLURM documentation](https://slurm.schedmd.com/documentation.html) for additional commands. For PSC users, refer to the [user guide](https://www.psc.edu/resources/bridges-2/user-guide/).
 
 ## Contributions
 
-QK (@umehina), CM (@cindymai-776), Roy Hung
-
-## Citation 
-
+QK (@umehina), CM (@cindymai-776), RH
 
 ## Special Acknowledgements
 

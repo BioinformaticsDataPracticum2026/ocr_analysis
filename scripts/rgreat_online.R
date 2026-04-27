@@ -3,13 +3,11 @@
 # Run online GREAT analysis for one BED file.
 #
 # To install dependencies, follow the guide on rGREAT repo.
-# TODO: better idea to have the script install the package automatically,
-# because whoever uses this might not know how to do it the better way.
-# 
-# The better way:
-#   BiocManager::install(c("rGREAT", "GenomicRanges", "rtracklayer"), Ncpus = 128)
-#   Yes, just use interact session and use a RM node, because compiling R packages
-#   is painfully slow in RM-small and RM-shared. I learned this the hard way.
+#
+# Tips:
+# - When installing dependencies, you can use the following line: 
+# - BiocManager::install(c("rGREAT", "GenomicRanges", "rtracklayer"), Ncpus = 128)
+# - Besure to check how many CPUs you have available. Please refer to README.
 #
 # Usage:
 #   Rscript scripts/rgreat_online.R <bed_file> <genome> <output_dir>
