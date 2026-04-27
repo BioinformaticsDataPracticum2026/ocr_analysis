@@ -349,7 +349,6 @@ def run_homer(config: dict) -> Dict[str, Path]:
     jobs = build_homer_jobs(config)
 
     outputs: Dict[str, Path] = {}
-    submitted_any_job = False
 
     print("=" * 80)
     print("Preparing HOMER motif enrichment jobs")
@@ -420,12 +419,5 @@ def run_homer(config: dict) -> Dict[str, Path]:
 
         print(f"Submitting/running HOMER job: {run_name}")
         helpers.submit_or_run_job(use_sbatch, script_path, verbose=verbose)
-        submitted_any_job = True
 
-    if submitted_any_job:
-        raise SystemExit(
-            "Submitted HOMER job(s). Re-run the pipeline after HOMER finishes."
-        )
-
-    print("HOMER outputs already exist; continuing pipeline.")
     return outputs
