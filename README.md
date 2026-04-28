@@ -213,6 +213,10 @@ Please refer to the [SLURM documentation](https://slurm.schedmd.com/documentatio
 
 QK (@umehina), CM (@cindymai-776), RH
 
+## Citation
+
+> **Kong, Q., Mai, C., & Hung, R. (2026).** *Open Chromatin Region Analysis for Human and Mice Pancreas Tissue.* 03-713: Bioinformatics Data Integration Practicum. Carnegie Mellon Univeristy. URL: https://github.com/BioinformaticsDataPracticum2026/ocr_analysis
+
 ## Special Acknowledgements
 
 Thank you Isabella for pointing out how we should structure the project.
